@@ -9,14 +9,14 @@ type Tab struct {
 
 var (
 	Tabs = map[string]Tab{
-		"welcome": {
-			Title: "Welcome",
-			Info:  "SomeInfo",
-			View:  nil,
+		"status": {
+			Title: "Status screen",
+			Info:  "",
+			View:  makeStatusScreen,
 		},
 	}
 
 	TabsIndex = map[string][]string{
-		"": {"welcome", "terminal", "controll", "status"},
+		"": {"status"},
 	}
 )

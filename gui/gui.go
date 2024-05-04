@@ -11,6 +11,10 @@ type Gui struct {
 	sshClient  *ssh.Client
 	Window     fyne.Window
 	HomeFolder string
+	Host       *Host
+}
+type Host struct {
+	IP string
 }
 
 func (g *Gui) MakeGui() fyne.CanvasObject {
@@ -21,7 +25,7 @@ func (g *Gui) MakeGui() fyne.CanvasObject {
 
 	// a := fyne.CurrentApp()
 	// a.Lifecycle().SetOnStarted(func() {
-	g.showConnect()
+	// 	g.ShowConnect()
 	// })
 
 	tab := container.NewBorder(container.NewVBox(title, info), nil, nil, nil, mainWindow)
@@ -39,7 +43,7 @@ func (g *Gui) MakeGui() fyne.CanvasObject {
 
 func (g *Gui) makeNav(setTab func(t Tab)) fyne.CanvasObject {
 	a := fyne.CurrentApp()
-	const preferenceCurrentTutorial = "currentTutorial"
+	const preferenceCurrent = "nav"
 
 	tree := &widget.Tree{
 		ChildUIDs: func(uid string) []string {
@@ -56,7 +60,7 @@ func (g *Gui) makeNav(setTab func(t Tab)) fyne.CanvasObject {
 		UpdateNode: func(uid string, branch bool, obj fyne.CanvasObject) {
 			t, ok := Tabs[uid]
 			if !ok {
-				fyne.LogError("Missing tutorial panel: "+uid, nil)
+				fyne.LogError("Missing panel: "+uid, nil)
 				return
 			}
 			obj.(*widget.Label).SetText(t.Title)
@@ -73,7 +77,7 @@ func (g *Gui) makeNav(setTab func(t Tab)) fyne.CanvasObject {
 				// 	return
 				// }
 				// fmt.Println(uid)
-				a.Preferences().SetString(preferenceCurrentTutorial, uid)
+				a.Preferences().SetString(preferenceCurrent, uid)
 				setTab(t)
 			}
 		},

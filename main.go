@@ -16,5 +16,8 @@ func main() {
 	}
 	content := g.MakeGui()
 	g.Window.SetContent(content)
+	a.Lifecycle().SetOnStarted(func() {
+		g.ShowConnect()
+	})
 	w.ShowAndRun()
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -15,7 +16,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func (g *Gui) showConnect() {
+func (g *Gui) ShowConnect() {
 
 	var wizard *dialogWizard.Wizard
 
@@ -23,11 +24,14 @@ func (g *Gui) showConnect() {
 	joinToNewHost := func() *fyne.Container {
 		userEntry := widget.NewEntry()
 		ipEntry := widget.NewEntry()
+		portEntry := widget.NewEntry()
 		passwordEntry := widget.NewPasswordEntry()
 		errorLabel := widget.NewLabel("")
-		var privKeyState bool
-
 		keyPathEntry := widget.NewEntry()
+		var privKeyState bool
+		portEntry.PlaceHolder = "22"
+		addresBoxEntry := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewLabel(":"), portEntry), ipEntry)
+
 		keyPathEntry.PlaceHolder = "path to your private key"
 
 		fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
@@ -44,7 +48,7 @@ func (g *Gui) showConnect() {
 			keyPathEntry,
 		)
 		passwordBoxEntry := container.NewVBox(
-			widget.NewLabel("password"),
+			widget.NewLabel("Password"),
 			passwordEntry,
 		)
 		keyEntryBox := container.NewStack(passwordBoxEntry)
@@ -60,6 +64,15 @@ func (g *Gui) showConnect() {
 		errorLabel.Wrapping = 2
 		submitFunc := func() {
 			var err error
+			ip := strings.TrimSpace(ipEntry.Text)
+			port := ""
+			if portEntry.Text == "" {
+				port = "22"
+			} else {
+				port = strings.TrimSpace(portEntry.Text)
+			}
+			address := fmt.Sprintf("%v:%v", ip, (port))
+			log.Print(address)
 			if privKeyState {
 				var b []byte
 				g.sshClient, err = func() (*ssh.Client, error) {
@@ -67,14 +80,15 @@ func (g *Gui) showConnect() {
 					if err != nil {
 						return nil, err
 					}
-					c, err := gssh.MakeSSH_ClientWithPrivKey(ipEntry.Text, userEntry.Text, b)
+
+					c, err := gssh.MakeSSH_ClientWithPrivKey(address, userEntry.Text, b)
 					if err != nil {
 						return nil, err
 					}
 					return c, nil
 				}()
 			} else {
-				g.sshClient, err = gssh.MakeSHH_ClientWithPassword(ipEntry.Text, userEntry.Text, passwordEntry.Text)
+				g.sshClient, err = gssh.MakeSHH_ClientWithPassword(address, userEntry.Text, passwordEntry.Text)
 			}
 			if err != nil {
 				errorLabel.SetText(fmt.Sprintf("ERROR: %s", err.Error()))
@@ -82,6 +96,9 @@ func (g *Gui) showConnect() {
 				// err = TryToRunSSHSessionForTerminal(g.sshClient)
 				// if err != nil {
 				// } else {
+				g.Host = &Host{
+					IP: ip,
+				}
 				wizard.Hide()
 			}
 
@@ -89,12 +106,13 @@ func (g *Gui) showConnect() {
 		ipEntry.OnSubmitted = func(s string) { submitFunc() }
 		userEntry.OnSubmitted = func(s string) { submitFunc() }
 		passwordEntry.OnSubmitted = func(s string) { submitFunc() }
-		connectButton := widget.NewButton("connect to remote host", func() { submitFunc() })
+		connectButton := widget.NewButton("Connect to remote host", func() { submitFunc() })
 
 		logging := container.NewVBox(
-			widget.NewLabel("ip and port"),
-			ipEntry,
-			widget.NewLabel("user"),
+			widget.NewLabel("Ip and port"),
+			// ipEntry,
+			addresBoxEntry,
+			widget.NewLabel("User"),
 			userEntry,
 			keyEntryBox,
 			connectButton,
@@ -103,11 +121,11 @@ func (g *Gui) showConnect() {
 		)
 		return logging
 	}
-	mainDialogScreen := container.NewAppTabs(
-		// container.NewTabItem("Existing Node", joinToInitializedNode()),
-		container.NewTabItem("New Host", joinToNewHost()),
-	)
-	wizard = dialogWizard.NewWizard("Create ssh connection", mainDialogScreen)
+	// mainDialogScreen := container.NewAppTabs(
+	// 	// container.NewTabItem("Existing Node", joinToInitializedNode()),
+	// 	container.NewTabItem("New Host", joinToNewHost()),
+	// )
+	wizard = dialogWizard.NewWizard("Create ssh connection", joinToNewHost())
 	wizard.Show(g.Window)
-	wizard.Resize(fyne.NewSize(300, 200))
+	wizard.Resize(fyne.NewSize(350, 450))
 }
