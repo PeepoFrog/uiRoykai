@@ -28,12 +28,15 @@ func (g *Gui) ShowConnect() {
 		passwordEntry := widget.NewPasswordEntry()
 		errorLabel := widget.NewLabel("")
 		keyPathEntry := widget.NewEntry()
+		passphraseEntry := widget.NewEntry()
+		passphraseEntry.Hide()
 		var privKeyState bool
+		var passphraseState bool
 		portEntry.PlaceHolder = "22"
 		addresBoxEntry := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewLabel(":"), portEntry), ipEntry)
 
 		keyPathEntry.PlaceHolder = "path to your private key"
-
+		passphraseEntry.PlaceHolder = "your passphrase"
 		fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 			uri := reader.URI().Path()
 			keyPathEntry.SetText(uri)
@@ -47,6 +50,12 @@ func (g *Gui) ShowConnect() {
 			openFileDialogButton,
 			keyPathEntry,
 		)
+
+		privKeyBoxEntry := container.NewVBox(
+			privKeyEntry,
+			passphraseEntry,
+		)
+
 		passwordBoxEntry := container.NewVBox(
 			widget.NewLabel("Password"),
 			passwordEntry,
@@ -56,11 +65,21 @@ func (g *Gui) ShowConnect() {
 		privKeyCheck := widget.NewCheck("Join with private key", func(b bool) {
 			privKeyState = b
 			if b {
-				keyEntryBox.Objects[0] = privKeyEntry
+				keyEntryBox.Objects = []fyne.CanvasObject{privKeyBoxEntry}
 			} else {
-				keyEntryBox.Objects[0] = passwordBoxEntry
+				keyEntryBox.Objects = []fyne.CanvasObject{passwordBoxEntry}
 			}
 		})
+		passphraseCheck := widget.NewCheck("SSH passphrase key", func(b bool) {
+			passphraseState = b
+			if passphraseState {
+				passphraseEntry.Show()
+			} else {
+				passphraseEntry.Hide()
+			}
+		})
+		privKeyBoxEntry.Objects = append(privKeyBoxEntry.Objects, passphraseCheck)
+
 		errorLabel.Wrapping = 2
 		submitFunc := func() {
 			var err error
@@ -75,16 +94,24 @@ func (g *Gui) ShowConnect() {
 			log.Print(address)
 			if privKeyState {
 				var b []byte
+				var c *ssh.Client
 				g.sshClient, err = func() (*ssh.Client, error) {
 					b, err = os.ReadFile(keyPathEntry.Text)
 					if err != nil {
 						return nil, err
 					}
-
-					c, err := gssh.MakeSSH_ClientWithPrivKey(address, userEntry.Text, b)
-					if err != nil {
-						return nil, err
+					if passphraseState {
+						c, err = gssh.MakeSSH_ClientWithPrivKeyWithPassPhrase(address, userEntry.Text, b, []byte(passphraseEntry.Text))
+						if err != nil {
+							return nil, err
+						}
+					} else {
+						c, err = gssh.MakeSSH_ClientWithPrivKey(address, userEntry.Text, b)
+						if err != nil {
+							return nil, err
+						}
 					}
+
 					return c, nil
 				}()
 			} else {
@@ -115,8 +142,8 @@ func (g *Gui) ShowConnect() {
 			widget.NewLabel("User"),
 			userEntry,
 			keyEntryBox,
-			connectButton,
 			privKeyCheck,
+			connectButton,
 			errorLabel,
 		)
 		return logging

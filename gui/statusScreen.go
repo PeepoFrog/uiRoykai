@@ -56,7 +56,7 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 			err = shidaiStatusBinding.Set(true)
 			log.Printf("ERROR: %v", err)
 			if err != nil {
-				interxStatusInfo.SetText("shidai unavailable")
+				shidaiStatusInfo.SetText("shidai unavailable")
 				log.Printf("ERROR: %v", err)
 				return
 			}

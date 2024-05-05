@@ -38,3 +38,22 @@ func MakeSSH_ClientWithPrivKey(ipAndPort, user string, key []byte) (*ssh.Client,
 	}
 	return client, nil
 }
+
+func MakeSSH_ClientWithPrivKeyWithPassPhrase(ipAndPort, user string, key, passphrase []byte) (*ssh.Client, error) {
+	signer, err := ssh.ParsePrivateKeyWithPassphrase(key, passphrase)
+	if err != nil {
+		return nil, err
+	}
+	config := &ssh.ClientConfig{
+		User: user,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+	client, err := ssh.Dial("tcp", ipAndPort, config)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
