@@ -39,7 +39,7 @@ func MakeSSH_ClientWithPrivKey(ipAndPort, user string, key []byte) (*ssh.Client,
 	return client, nil
 }
 
-func MakeSSH_ClientWithPrivKeyWithPassPhrase(ipAndPort, user string, key, passphrase []byte) (*ssh.Client, error) {
+func MakeSSH_ClientWithPrivKeyAndPassphrase(ipAndPort, user string, key, passphrase []byte) (*ssh.Client, error) {
 	signer, err := ssh.ParsePrivateKeyWithPassphrase(key, passphrase)
 	if err != nil {
 		return nil, err
@@ -56,4 +56,15 @@ func MakeSSH_ClientWithPrivKeyWithPassPhrase(ipAndPort, user string, key, passph
 		return nil, err
 	}
 	return client, nil
+}
+
+func CheckIfPassphraseNeeded(privateKeyBytes []byte) (bool, error) {
+	_, err := ssh.ParsePrivateKey(privateKeyBytes)
+	if err != nil {
+		if _, ok := err.(*ssh.PassphraseMissingError); ok {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
 }

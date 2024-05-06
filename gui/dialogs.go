@@ -21,18 +21,24 @@ func (g *Gui) ShowConnect() {
 	var wizard *dialogWizard.Wizard
 
 	//join to new host tab
-	joinToNewHost := func() *fyne.Container {
+	join := func() *fyne.Container {
 		userEntry := widget.NewEntry()
 		ipEntry := widget.NewEntry()
 		portEntry := widget.NewEntry()
 		passwordEntry := widget.NewPasswordEntry()
 		errorLabel := widget.NewLabel("")
 		keyPathEntry := widget.NewEntry()
-		passphraseEntry := widget.NewEntry()
+		passphraseEntry := widget.NewPasswordEntry()
 		passphraseEntry.Hide()
 		var privKeyState bool
 		var passphraseState bool
 		portEntry.PlaceHolder = "22"
+		passphraseEntry.Validator = func(s string) error {
+			if s == "" {
+				return fmt.Errorf("enter your passphrase")
+			}
+			return nil
+		}
 		addresBoxEntry := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewLabel(":"), portEntry), ipEntry)
 
 		keyPathEntry.PlaceHolder = "path to your private key"
@@ -81,6 +87,7 @@ func (g *Gui) ShowConnect() {
 		privKeyBoxEntry.Objects = append(privKeyBoxEntry.Objects, passphraseCheck)
 
 		errorLabel.Wrapping = 2
+
 		submitFunc := func() {
 			var err error
 			ip := strings.TrimSpace(ipEntry.Text)
@@ -91,27 +98,42 @@ func (g *Gui) ShowConnect() {
 				port = strings.TrimSpace(portEntry.Text)
 			}
 			address := fmt.Sprintf("%v:%v", ip, (port))
-			log.Print(address)
+
 			if privKeyState {
 				var b []byte
 				var c *ssh.Client
+
 				g.sshClient, err = func() (*ssh.Client, error) {
 					b, err = os.ReadFile(keyPathEntry.Text)
 					if err != nil {
 						return nil, err
 					}
-					if passphraseState {
-						c, err = gssh.MakeSSH_ClientWithPrivKeyWithPassPhrase(address, userEntry.Text, b, []byte(passphraseEntry.Text))
+					check, err := gssh.CheckIfPassphraseNeeded(b)
+					if err != nil {
+						return nil, err
+					}
+					if check {
+						if passphraseEntry.Hidden {
+							passphraseEntry.Validate()
+							passphraseEntry.SetValidationError(fmt.Errorf("passphrase required"))
+							passphraseCheck.SetChecked(true)
+						}
+
+						c, err = gssh.MakeSSH_ClientWithPrivKeyAndPassphrase(address, userEntry.Text, b, []byte(passphraseEntry.Text))
 						if err != nil {
+
 							return nil, err
 						}
 					} else {
+						if !passphraseEntry.Hidden {
+							passphraseCheck.SetChecked(false)
+
+						}
 						c, err = gssh.MakeSSH_ClientWithPrivKey(address, userEntry.Text, b)
 						if err != nil {
 							return nil, err
 						}
 					}
-
 					return c, nil
 				}()
 			} else {
@@ -130,6 +152,7 @@ func (g *Gui) ShowConnect() {
 			}
 
 		}
+
 		ipEntry.OnSubmitted = func(s string) { submitFunc() }
 		userEntry.OnSubmitted = func(s string) { submitFunc() }
 		passwordEntry.OnSubmitted = func(s string) { submitFunc() }
@@ -152,7 +175,26 @@ func (g *Gui) ShowConnect() {
 	// 	// container.NewTabItem("Existing Node", joinToInitializedNode()),
 	// 	container.NewTabItem("New Host", joinToNewHost()),
 	// )
-	wizard = dialogWizard.NewWizard("Create ssh connection", joinToNewHost())
+	wizard = dialogWizard.NewWizard("Create ssh connection", join())
 	wizard.Show(g.Window)
 	wizard.Resize(fyne.NewSize(350, 450))
+}
+
+func (g *Gui) showPassphraseDialog(c chan<- string) {
+	var wizard *dialogWizard.Wizard
+	passphraseEntry := widget.NewEntry()
+	okButton := widget.NewButton("Ok", func() {
+		// pph = &passphraseEntry.Text
+		c <- passphraseEntry.Text
+		wizard.Hide()
+	})
+
+	okCancelBox := container.NewHBox(container.NewMax(), okButton, container.NewMax())
+	content := container.NewVBox(
+		passphraseEntry,
+		okCancelBox,
+	)
+	wizard = dialogWizard.NewWizard("Enter passphrase", content)
+	wizard.Show(g.Window)
+
 }
