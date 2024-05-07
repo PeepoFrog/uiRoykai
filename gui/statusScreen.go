@@ -34,6 +34,7 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		_, err := httph.MakeHttpRequest(fmt.Sprintf("http://%v:%v/api/status", g.Host.IP, 11000), "GET")
 		if err != nil {
 			log.Printf("ERROR: %v", err)
+			shidaiStatusInfo.SetText("shidai unavailable")
 			err = interxStatusBinding.Set(false)
 			if err != nil {
 				log.Printf("ERROR: %v", err)

@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
 	dialogWizard "github.com/PeepoFrog/km2UI/gui/dialogs"
 	"github.com/PeepoFrog/km2UI/helper/gssh"
 	"golang.org/x/crypto/ssh"
@@ -43,10 +46,41 @@ func (g *Gui) ShowConnect() {
 
 		keyPathEntry.PlaceHolder = "path to your private key"
 		passphraseEntry.PlaceHolder = "your passphrase"
+		passphraseCheck := widget.NewCheck("SSH passphrase key", func(b bool) {
+			passphraseState = b
+			if passphraseState {
+				passphraseEntry.Show()
+			} else {
+				passphraseEntry.Hide()
+			}
+		})
+
+		keyPathEntry.OnChanged = func(s string) {
+			b, err := os.ReadFile(s)
+			if err != nil {
+				return
+			}
+			check, err := gssh.CheckIfPassphraseNeeded(b)
+			if err != nil {
+				return
+			}
+			if check {
+				passphraseCheck.SetChecked(true)
+			} else {
+				passphraseCheck.SetChecked(false)
+			}
+			log.Println(s)
+		}
+
 		fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+			if reader == nil {
+				return
+			}
+
 			uri := reader.URI().Path()
 			keyPathEntry.SetText(uri)
 			log.Println("Opened file: ", uri)
+
 		}, g.Window)
 
 		openFileDialogButton := widget.NewButtonWithIcon("", theme.FileIcon(), func() { fileDialog.Show() })
@@ -76,14 +110,7 @@ func (g *Gui) ShowConnect() {
 				keyEntryBox.Objects = []fyne.CanvasObject{passwordBoxEntry}
 			}
 		})
-		passphraseCheck := widget.NewCheck("SSH passphrase key", func(b bool) {
-			passphraseState = b
-			if passphraseState {
-				passphraseEntry.Show()
-			} else {
-				passphraseEntry.Hide()
-			}
-		})
+
 		privKeyBoxEntry.Objects = append(privKeyBoxEntry.Objects, passphraseCheck)
 
 		errorLabel.Wrapping = 2
@@ -171,30 +198,87 @@ func (g *Gui) ShowConnect() {
 		)
 		return logging
 	}
-	// mainDialogScreen := container.NewAppTabs(
-	// 	// container.NewTabItem("Existing Node", joinToInitializedNode()),
-	// 	container.NewTabItem("New Host", joinToNewHost()),
-	// )
+
 	wizard = dialogWizard.NewWizard("Create ssh connection", join())
 	wizard.Show(g.Window)
 	wizard.Resize(fyne.NewSize(350, 450))
 }
 
-func (g *Gui) showPassphraseDialog(c chan<- string) {
+func (g *Gui) showErrorDialog(err error) {
 	var wizard *dialogWizard.Wizard
-	passphraseEntry := widget.NewEntry()
-	okButton := widget.NewButton("Ok", func() {
-		// pph = &passphraseEntry.Text
-		c <- passphraseEntry.Text
-		wizard.Hide()
-	})
-
-	okCancelBox := container.NewHBox(container.NewMax(), okButton, container.NewMax())
-	content := container.NewVBox(
-		passphraseEntry,
-		okCancelBox,
+	mainDialogScreen := container.NewVBox(
+		widget.NewLabel(err.Error()),
+		widget.NewButton("Close", func() { wizard.Hide() }),
 	)
-	wizard = dialogWizard.NewWizard("Enter passphrase", content)
+	wizard = dialogWizard.NewWizard("Create ssh connection", mainDialogScreen)
 	wizard.Show(g.Window)
+	wizard.Resize(fyne.NewSize(300, 200))
 
+}
+
+func showInfoDialog(g *Gui, infoTitle, infoString string) {
+	var wizard *dialogWizard.Wizard
+	closeButton := widget.NewButton("Close", func() { wizard.Hide() })
+	infoLabel := widget.NewLabel(infoString)
+	infoLabel.Wrapping = 2
+	content := container.NewBorder(nil, closeButton, nil, nil,
+		container.NewHScroll(
+			container.NewVScroll(
+				infoLabel,
+			),
+		),
+	)
+
+	wizard = dialogWizard.NewWizard(infoTitle, content)
+	wizard.Show(g.Window)
+	wizard.Resize(fyne.NewSize(400, 400))
+}
+
+func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string) {
+	outputChannel := make(chan string)
+	errorChannel := make(chan gssh.ResultV2)
+	go gssh.ExecuteSSHCommandV2(g.sshClient, cmd, outputChannel, errorChannel)
+
+	var wizard *dialogWizard.Wizard
+	outputMsg := binding.NewString()
+	statusMsg := binding.NewString()
+	statusMsg.Set("loading...")
+	loadingWidget := widget.NewProgressBarInfinite()
+
+	label := widget.NewLabelWithData(outputMsg)
+	closeButton := widget.NewButton("CLOSE", func() { wizard.Hide() })
+	outputScroll := container.NewVScroll(label)
+	loadingDialog := container.NewBorder(
+		widget.NewLabelWithData(statusMsg),
+		container.NewVBox(loadingWidget, closeButton),
+		nil,
+		nil,
+		container.NewHScroll(outputScroll),
+	)
+	closeButton.Hide()
+	wizard = dialogWizard.NewWizard(infoMSG, loadingDialog)
+	wizard.Show(g.Window)
+	wizard.Resize(fyne.NewSize(300, 400))
+	wizard.ChangeTitle(infoMSG)
+	var out string
+	for line := range outputChannel {
+		cleanLine := cleanString(line)
+		out = fmt.Sprintf("%s\n%s", out, cleanLine)
+		outputMsg.Set(out)
+		outputScroll.ScrollToBottom()
+	}
+	outputScroll.ScrollToBottom()
+	loadingWidget.Hide()
+	closeButton.Show()
+	errcheck := <-errorChannel
+	if errcheck.Err != nil {
+		statusMsg.Set(fmt.Sprintf("Error:\n%s", errcheck.Err))
+	} else {
+		statusMsg.Set("Successes")
+	}
+}
+
+func cleanString(s string) string {
+	re := regexp.MustCompile("[^\x20-\x7E\n]+")
+	return re.ReplaceAllString(s, "")
 }
