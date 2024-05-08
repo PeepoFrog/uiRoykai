@@ -282,3 +282,97 @@ func cleanString(s string) string {
 	re := regexp.MustCompile("[^\x20-\x7E\n]+")
 	return re.ReplaceAllString(s, "")
 }
+
+func showSudoEnteringDialog(g *Gui, bindString binding.String, bindCheck binding.Bool) {
+	var wizard *dialogWizard.Wizard
+
+	sudoPasswordEntry := widget.NewEntryWithData(bindString)
+
+	checkSudoPassword := func(p string) error {
+		cmd := fmt.Sprintf("echo '%v' | sudo -S uname", p)
+		outputChannel := make(chan string)
+		errorChannel := make(chan gssh.ResultV2)
+		go gssh.ExecuteSSHCommandV2(g.sshClient, cmd, outputChannel, errorChannel)
+		for line := range outputChannel {
+			log.Println(line)
+		}
+		errcheck := <-errorChannel
+		if errcheck.Err != nil {
+			log.Println(errcheck.Err)
+			return errcheck.Err
+		}
+		return nil
+	}
+
+	okButton := widget.NewButton("Ok", func() {
+		err := checkSudoPassword(sudoPasswordEntry.Text)
+		if err == nil {
+			err = bindCheck.Set(true)
+			if err != nil {
+				return
+			}
+			wizard.Hide()
+		} else {
+			sudoPasswordEntry.SetValidationError(fmt.Errorf("sudo password is wrong: %w", err))
+		}
+
+	})
+	cancelButton := widget.NewButton("Cancel", func() { wizard.Hide() })
+	content := container.NewHBox(
+		sudoPasswordEntry,
+		container.NewVBox(
+			okButton, container.NewCenter(), cancelButton,
+		),
+	)
+
+	wizard = dialogWizard.NewWizard("Enter your sudo password", content)
+	wizard.Show(g.Window)
+
+}
+
+func showDeployDialog(g *Gui) {
+	var wizard *dialogWizard.Wizard
+
+	ipToJoinEntry := widget.NewEntry()
+	interxPortToJoinEntry := widget.NewEntry()
+	sekaiRPCPortToJoinEntry := widget.NewEntry()
+	sekaiP2PPortEntry := widget.NewEntry()
+	sudoPassword := binding.NewString()
+	sudoCheck := binding.NewBool()
+	sudoPasswordEntryButton := widget.NewButton("sudo password", func() {
+		showSudoEnteringDialog(g, sudoPassword, sudoCheck)
+
+	})
+	deployButton := widget.NewButton("Deploy", func() {
+
+	})
+
+	sudoCheck.AddListener(binding.NewDataListener(func() {
+		check, err := sudoCheck.Get()
+		if err != nil {
+			return
+		}
+		if check {
+			deployButton.Enable()
+		}
+
+	}))
+
+	deployButton.Disable()
+
+	content := container.NewVBox(
+		widget.NewLabel("IP to join"),
+		ipToJoinEntry,
+		widget.NewLabel("sekai rpc port to join"),
+		sekaiRPCPortToJoinEntry,
+		widget.NewLabel("sekai P2P port to join"),
+		sekaiP2PPortEntry,
+		widget.NewLabel("interx port to join"),
+		interxPortToJoinEntry,
+		sudoPasswordEntryButton,
+		deployButton,
+	)
+
+	wizard = dialogWizard.NewWizard("Enter connection info", content)
+	wizard.Show(g.Window)
+}

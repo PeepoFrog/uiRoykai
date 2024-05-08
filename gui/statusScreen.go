@@ -12,8 +12,10 @@ import (
 )
 
 func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
-
-	deployButton := widget.NewButton("DEPLOY NODE", func() {})
+	
+	deployButton := widget.NewButton("DEPLOY", func() {
+		showDeployDialog(g)
+	})
 	deployButton.Disable()
 
 	interxStatusBinding := binding.NewBool()
@@ -30,24 +32,28 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		shidaiStatusInfo,
 	)
 
-	refreshButton := widget.NewButton("Refresh", func() {
+	checkInterxStatus := func() {
 		_, err := httph.MakeHttpRequest(fmt.Sprintf("http://%v:%v/api/status", g.Host.IP, 11000), "GET")
+
+		log.Printf("ERROR: %v", err)
+		shidaiStatusInfo.SetText("shidai unavailable")
+		err = interxStatusBinding.Set(false)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
-			shidaiStatusInfo.SetText("shidai unavailable")
-			err = interxStatusBinding.Set(false)
+			return
+		} else {
+			err = interxStatusBinding.Set(true)
 			if err != nil {
-				log.Printf("ERROR: %v", err)
 				return
 			}
-		} else {
-			interxStatusBinding.Set(true)
 		}
+	}
 
-		_, err = httph.MakeHttpRequest(fmt.Sprintf("http://%v:%v/status", g.Host.IP, 8282), "GET")
+	checkShidaiStatus := func() {
+		_, err := httph.MakeHttpRequest(fmt.Sprintf("http://%v:%v/status", g.Host.IP, 8282), "GET")
 		if err != nil {
 			log.Printf("ERROR: %v", err)
-			interxStatusInfo.SetText("interx unavailable")
+			interxStatusInfo.SetText("shidai unavailable")
 			err = shidaiStatusBinding.Set(false)
 			if err != nil {
 				log.Printf("ERROR: %v", err)
@@ -55,13 +61,15 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 			}
 		} else {
 			err = shidaiStatusBinding.Set(true)
-			log.Printf("ERROR: %v", err)
 			if err != nil {
-				shidaiStatusInfo.SetText("shidai unavailable")
-				log.Printf("ERROR: %v", err)
 				return
 			}
 		}
+	}
+
+	refreshButton := widget.NewButton("Refresh", func() {
+		checkInterxStatus()
+		checkShidaiStatus()
 		shidaiCheck, _ := shidaiStatusBinding.Get()
 		interxCheck, _ := shidaiStatusBinding.Get()
 		if !shidaiCheck || !interxCheck {
