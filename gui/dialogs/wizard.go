@@ -56,6 +56,7 @@ func (w *Wizard) Show(win fyne.Window) {
 
 func (w *Wizard) ChangeTitle(title string) {
 	w.title = title
+	w.content.Refresh()
 }
 
 func (w *Wizard) wrap(title string, content fyne.CanvasObject) fyne.CanvasObject {

@@ -180,6 +180,18 @@ func (g *Gui) ShowConnect() {
 
 		}
 
+		// / test ui block
+		testButton := widget.NewButton("connect to tested env", func() {
+			ipEntry.Text = "192.168.1.104"
+			userEntry.Text = "d"
+			passwordEntry.Text = "12345678"
+			passphraseCheck.SetChecked(false)
+
+			submitFunc()
+		})
+
+		///
+
 		ipEntry.OnSubmitted = func(s string) { submitFunc() }
 		userEntry.OnSubmitted = func(s string) { submitFunc() }
 		passwordEntry.OnSubmitted = func(s string) { submitFunc() }
@@ -195,6 +207,7 @@ func (g *Gui) ShowConnect() {
 			privKeyCheck,
 			connectButton,
 			errorLabel,
+			testButton,
 		)
 		return logging
 	}
@@ -242,11 +255,11 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 	var wizard *dialogWizard.Wizard
 	outputMsg := binding.NewString()
 	statusMsg := binding.NewString()
-	statusMsg.Set("loading...")
+	statusMsg.Set("Loading...")
 	loadingWidget := widget.NewProgressBarInfinite()
 
 	label := widget.NewLabelWithData(outputMsg)
-	closeButton := widget.NewButton("CLOSE", func() { wizard.Hide() })
+	closeButton := widget.NewButton("Done", func() { wizard.Hide() })
 	outputScroll := container.NewVScroll(label)
 	loadingDialog := container.NewBorder(
 		widget.NewLabelWithData(statusMsg),
@@ -259,7 +272,6 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 	wizard = dialogWizard.NewWizard(infoMSG, loadingDialog)
 	wizard.Show(g.Window)
 	wizard.Resize(fyne.NewSize(300, 400))
-	wizard.ChangeTitle(infoMSG)
 	var out string
 	for line := range outputChannel {
 		cleanLine := cleanString(line)
@@ -276,6 +288,7 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 		statusMsg.Set(fmt.Sprintf("Error:\n%s", errcheck.Err))
 	} else {
 		errorBinding.Set(false)
+		wizard.ChangeTitle("Done")
 		statusMsg.Set("Successes")
 	}
 	if autoHideCheck {
@@ -362,7 +375,7 @@ func showDeployDialog(g *Gui) {
 		if err != nil {
 			dialog.ShowError(err, g.Window)
 		}
-		showCmdExecDialogAndRunCmdV4(g, "deploying...", cmdForDeploy, false, binding.NewBool())
+		showCmdExecDialogAndRunCmdV4(g, "Deploying", cmdForDeploy, false, binding.NewBool())
 		// showInfoDialog(g, "Done", "Finished")
 		// wizard.Hide()
 	})
@@ -402,4 +415,30 @@ func showDeployDialog(g *Gui) {
 
 	wizard = dialogWizard.NewWizard("Enter connection info", content)
 	wizard.Show(g.Window)
+}
+
+type WaitDialog struct {
+	wizard *dialogWizard.Wizard
+	g      *Gui
+}
+
+func NewWaitDialog(g *Gui) *WaitDialog {
+	var wizard *dialogWizard.Wizard
+
+	loadingWidget := widget.NewProgressBarInfinite()
+	content := container.NewVBox(loadingWidget)
+
+	wizard = dialogWizard.NewWizard("Loading", content)
+	return &WaitDialog{
+		wizard: wizard,
+		g:      g,
+	}
+}
+
+func (w *WaitDialog) ShowWaitDialog() {
+	w.wizard.Show(w.g.Window)
+}
+
+func (w *WaitDialog) HideWaitDialog() {
+	w.wizard.Hide()
 }

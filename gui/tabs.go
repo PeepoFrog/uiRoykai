@@ -14,9 +14,14 @@ var (
 			Info:  "",
 			View:  makeStatusScreen,
 		},
+		"nodeInfo": {
+			Title: "Node Info",
+			Info:  "",
+			View:  makeNodeInfoScreen,
+		},
 	}
 
 	TabsIndex = map[string][]string{
-		"": {"status"},
+		"": {"status", "nodeInfo"},
 	}
 )

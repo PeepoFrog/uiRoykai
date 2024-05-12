@@ -12,8 +12,8 @@ import (
 )
 
 func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
-	
-	deployButton := widget.NewButton("DEPLOY", func() {
+
+	deployButton := widget.NewButton("Deploy", func() {
 		showDeployDialog(g)
 	})
 	deployButton.Disable()
@@ -27,7 +27,7 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 
 	shidaiStatusBinding := binding.NewBool()
 	shidaiStatusInfo := widget.NewLabel("")
-	shidaiInfoBox := container.NewVBox(
+	shidaiInfoBox := container.NewHBox(
 		widget.NewLabel("Shidai:"),
 		shidaiStatusInfo,
 	)
