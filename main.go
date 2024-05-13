@@ -14,6 +14,7 @@ func main() {
 	g := gui.Gui{
 		Window: w,
 	}
+	g.WaitDialog = gui.NewWaitDialog(&g)
 	content := g.MakeGui()
 	g.Window.SetContent(content)
 	a.Lifecycle().SetOnStarted(func() {

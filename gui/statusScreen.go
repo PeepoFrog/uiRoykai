@@ -33,10 +33,10 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 	)
 
 	checkInterxStatus := func() {
-		_, err := httph.MakeHttpRequest(fmt.Sprintf("http://%v:%v/api/status", g.Host.IP, 11000), "GET")
+		_, err := httph.GetInterxStatus(g.Host.IP)
 
 		log.Printf("ERROR: %v", err)
-		shidaiStatusInfo.SetText("shidai unavailable")
+		shidaiStatusInfo.SetText("interx unavailable")
 		err = interxStatusBinding.Set(false)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
@@ -68,13 +68,19 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 	}
 
 	refreshButton := widget.NewButton("Refresh", func() {
+		g.WaitDialog.ShowWaitDialog()
 		checkInterxStatus()
 		checkShidaiStatus()
-		shidaiCheck, _ := shidaiStatusBinding.Get()
-		interxCheck, _ := shidaiStatusBinding.Get()
+		shidaiCheck, err := shidaiStatusBinding.Get()
+		if err != nil {
+		}
+		interxCheck, err := shidaiStatusBinding.Get()
+		if err != nil {
+		}
 		if !shidaiCheck || !interxCheck {
 			deployButton.Enable()
 		}
+		g.WaitDialog.HideWaitDialog()
 
 	})
 

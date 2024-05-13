@@ -10,6 +10,7 @@ import (
 type Gui struct {
 	sshClient  *ssh.Client
 	Window     fyne.Window
+	WaitDialog *WaitDialog
 	HomeFolder string
 	Host       *Host
 }
