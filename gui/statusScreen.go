@@ -73,9 +73,11 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		checkShidaiStatus()
 		shidaiCheck, err := shidaiStatusBinding.Get()
 		if err != nil {
+			log.Println(err)
 		}
 		interxCheck, err := shidaiStatusBinding.Get()
 		if err != nil {
+			log.Println(err)
 		}
 		if !shidaiCheck || !interxCheck {
 			deployButton.Enable()
