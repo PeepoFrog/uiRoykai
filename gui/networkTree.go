@@ -15,8 +15,8 @@ import (
 func makeNetworkTreeScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 
 	var nodes = make(map[string]networkparser.Node)
-	nodes["node1"] = networkparser.Node{IP: "node2", ID: "nod2", Peers: []networkparser.Node{networkparser.Node{IP: "node1", ID: "nod1"}}}
-	nodes["node2"] = networkparser.Node{IP: "node1", ID: "nod1", Peers: []networkparser.Node{networkparser.Node{IP: "node2", ID: "nod2"}}}
+	// nodes["node1"] = networkparser.Node{IP: "node2", ID: "nod2", Peers: []networkparser.Node{networkparser.Node{IP: "node1", ID: "nod1"}}}
+	// nodes["node2"] = networkparser.Node{IP: "node1", ID: "nod1", Peers: []networkparser.Node{networkparser.Node{IP: "node2", ID: "nod2"}}}
 	var err error
 
 	data := make([]networkparser.Node, len(nodes))
@@ -60,9 +60,10 @@ func makeNetworkTreeScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 
 	refreshButton := widget.NewButton("Refresh", func() {
 		g.WaitDialog.ShowWaitDialog()
-		nodes, err = networkparser.GetAllNodesV3(context.Background(), "148.251.69.56", 3, false)
+		nodes, err = networkparser.GetAllNodesV3(context.Background(), g.Host.IP, 3, false)
 		if err != nil {
 			log.Println(err)
+			g.showErrorDialog(err)
 			return
 		}
 
@@ -77,7 +78,8 @@ func makeNetworkTreeScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 			i++
 		}
 		list.Refresh()
-		g.WaitDialog.HideWaitDialog()
+		defer g.WaitDialog.HideWaitDialog()
+
 	})
 
 	return container.NewBorder(

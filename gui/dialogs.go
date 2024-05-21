@@ -116,6 +116,7 @@ func (g *Gui) ShowConnect() {
 		errorLabel.Wrapping = 2
 
 		submitFunc := func() {
+			g.WaitDialog.ShowWaitDialog()
 			var err error
 			ip := strings.TrimSpace(ipEntry.Text)
 			port := ""
@@ -177,12 +178,12 @@ func (g *Gui) ShowConnect() {
 				}
 				wizard.Hide()
 			}
-
+			defer g.WaitDialog.HideWaitDialog()
 		}
 
 		// / test ui block
 		testButton := widget.NewButton("connect to tested env", func() {
-			ipEntry.Text = "192.168.1.103"
+			ipEntry.Text = "192.168.1.101"
 			userEntry.Text = "d"
 			passwordEntry.Text = "d"
 			passphraseCheck.SetChecked(false)

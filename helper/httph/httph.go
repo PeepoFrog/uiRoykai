@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/PeepoFrog/km2UI/types"
@@ -41,5 +42,6 @@ func GetInterxStatus(nodeIP string) (*types.Info, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("interx status is okay")
 	return &info, nil
 }

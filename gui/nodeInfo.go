@@ -19,7 +19,7 @@ import (
 
 func makeNodeInfoScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 	// TODO: only for testing, delete later
-	g.Host.IP = "148.251.69.56"
+	// g.Host.IP = "148.251.69.56"
 	//
 
 	// latest block box
@@ -41,7 +41,7 @@ func makeNodeInfoScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 				return
 			}
 
-			err = clipboard.WriteAll(data + "sdfsdf")
+			err = clipboard.WriteAll(data)
 			if err != nil {
 				return
 			}
