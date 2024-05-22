@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/PeepoFrog/km2UI/helper/networkparser"
@@ -57,13 +58,16 @@ func makeNetworkTreeScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		infoData = data[id].Peers
 		infoList.Refresh()
 	}
-
+	doneListener := binding.NewDataListener(func() {
+		defer g.WaitDialog.HideWaitDialog()
+	})
 	refreshButton := widget.NewButton("Refresh", func() {
 		g.WaitDialog.ShowWaitDialog()
-		nodes, err = networkparser.GetAllNodesV3(context.Background(), g.Host.IP, 3, false)
+		// nodes, err = networkparser.GetAllNodesV3(context.Background(), g.Host.IP, 3, false)
+		nodes, err = networkparser.GetAllNodesV3(context.Background(), "148.251.69.56", 3, false)
 		if err != nil {
 			log.Println(err)
-			g.showErrorDialog(err)
+			g.showErrorDialog(err, doneListener)
 			return
 		}
 
@@ -78,8 +82,7 @@ func makeNetworkTreeScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 			i++
 		}
 		list.Refresh()
-		defer g.WaitDialog.HideWaitDialog()
-
+		doneListener.DataChanged()
 	})
 
 	return container.NewBorder(

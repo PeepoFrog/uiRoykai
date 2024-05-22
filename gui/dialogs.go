@@ -218,11 +218,11 @@ func (g *Gui) ShowConnect() {
 	wizard.Resize(fyne.NewSize(350, 450))
 }
 
-func (g *Gui) showErrorDialog(err error) {
+func (g *Gui) showErrorDialog(err error, closeListener binding.DataListener) {
 	var wizard *dialogWizard.Wizard
 	mainDialogScreen := container.NewVBox(
 		widget.NewLabel(err.Error()),
-		widget.NewButton("Close", func() { wizard.Hide() }),
+		widget.NewButton("Close", func() { wizard.Hide(); closeListener.DataChanged() }),
 	)
 	wizard = dialogWizard.NewWizard("Create ssh connection", mainDialogScreen)
 	wizard.Show(g.Window)
@@ -399,15 +399,15 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 
 		errB, err := deployErrorBinding.Get()
 		if err != nil {
-			g.showErrorDialog(err)
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
 		}
 		if errB {
 			errMsg, err := errorMessageBinding.Get()
 			if err != nil {
-				g.showErrorDialog(err)
+				g.showErrorDialog(err, binding.NewDataListener(func() {}))
 			}
 
-			g.showErrorDialog(fmt.Errorf("error while checking the sudo password: %v ", errMsg))
+			g.showErrorDialog(fmt.Errorf("error while checking the sudo password: %v ", errMsg), binding.NewDataListener(func() {}))
 		} else {
 			doneListener.DataChanged()
 			wizard.Hide()
