@@ -63,8 +63,11 @@ func makeNetworkTreeScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 	})
 	refreshButton := widget.NewButton("Refresh", func() {
 		g.WaitDialog.ShowWaitDialog()
-		// nodes, err = networkparser.GetAllNodesV3(context.Background(), g.Host.IP, 3, false)
-		nodes, err = networkparser.GetAllNodesV3(context.Background(), "148.251.69.56", 3, false)
+		nodes, err = networkparser.GetAllNodesV3(context.Background(), g.Host.IP, 3, false)
+
+		// TODO: for testing
+		// nodes, err = networkparser.GetAllNodesV3(context.Background(), "148.251.69.56", 3, false)
+		//
 		if err != nil {
 			log.Println(err)
 			g.showErrorDialog(err, doneListener)
