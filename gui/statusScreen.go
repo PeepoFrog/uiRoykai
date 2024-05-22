@@ -12,8 +12,9 @@ import (
 )
 
 func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
+	var dataListenerForSuccesses binding.DataListener
 	deployButton := widget.NewButton("Deploy", func() {
-		showDeployDialog(g)
+		showDeployDialog(g, dataListenerForSuccesses)
 	})
 	deployButton.Disable()
 
@@ -71,7 +72,7 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		}
 	}
 
-	refreshButton := widget.NewButton("Refresh", func() {
+	refresh := func() {
 		g.WaitDialog.ShowWaitDialog()
 		checkInterxStatus()
 		checkShidaiStatus()
@@ -86,16 +87,18 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		if !shidaiCheck && !interxCheck {
 			deployButton.Enable()
 		}
-		// if !interxCheck && shidaiCheck {
-		// 	// check if shidai initialized
-		// 	//if initialized =true start button/restart
 
-		// 	//enable join button
-		// }
 		g.WaitDialog.HideWaitDialog()
+	}
 
+	refreshButton := widget.NewButton("Refresh", func() {
+		refresh()
 	})
 
+	dataListenerForSuccesses = binding.NewDataListener(func() {
+		deployButton.Disable()
+		refresh()
+	})
 	return container.NewVBox(
 		deployButton,
 		refreshButton,

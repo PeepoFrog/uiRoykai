@@ -248,7 +248,7 @@ func showInfoDialog(g *Gui, infoTitle, infoString string) {
 	wizard.Resize(fyne.NewSize(400, 400))
 }
 
-func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCheck bool, errorBinding binding.Bool) {
+func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCheck bool, errorBinding binding.Bool, errorMessageBinding binding.String) {
 	outputChannel := make(chan string)
 	errorChannel := make(chan gssh.ResultV2)
 	go gssh.ExecuteSSHCommandV2(g.sshClient, cmd, outputChannel, errorChannel)
@@ -273,6 +273,9 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 	wizard = dialogWizard.NewWizard(infoMSG, loadingDialog)
 	wizard.Show(g.Window)
 	wizard.Resize(fyne.NewSize(300, 400))
+	if autoHideCheck {
+		defer wizard.Hide()
+	}
 	var out string
 	for line := range outputChannel {
 		cleanLine := cleanString(line)
@@ -285,16 +288,16 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 	closeButton.Show()
 	errcheck := <-errorChannel
 	if errcheck.Err != nil {
+		log.Printf("Unable to execute executing: <%v>, error: %v", cmd, errcheck.Err.Error())
 		errorBinding.Set(true)
+		errorMessageBinding.Set(errcheck.Err.Error())
 		statusMsg.Set(fmt.Sprintf("Error:\n%s", errcheck.Err))
 	} else {
 		errorBinding.Set(false)
 		wizard.ChangeTitle("Done")
 		statusMsg.Set("Successes")
 	}
-	if autoHideCheck {
-		wizard.Hide()
-	}
+
 }
 
 func cleanString(s string) string {
@@ -306,7 +309,7 @@ func showSudoEnteringDialog(g *Gui, bindString binding.String, bindCheck binding
 	var wizard *dialogWizard.Wizard
 
 	sudoPasswordEntry := widget.NewEntryWithData(bindString)
-
+	errorMessageBinding := binding.NewString()
 	checkSudoPassword := func(p string) error {
 		cmd := fmt.Sprintf("echo '%v' | sudo -S uname", p)
 		// outputChannel := make(chan string)
@@ -321,10 +324,14 @@ func showSudoEnteringDialog(g *Gui, bindString binding.String, bindCheck binding
 		// 	return errcheck.Err
 		// }
 		errB := binding.NewBool()
-		showCmdExecDialogAndRunCmdV4(g, "checking sudo password", cmd, true, errB)
+		showCmdExecDialogAndRunCmdV4(g, "checking sudo password", cmd, true, errB, errorMessageBinding)
 		errExec, _ := errB.Get()
 		if errExec {
-			return fmt.Errorf("sudo is wrong")
+			errMsg, err := errorMessageBinding.Get()
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("error while checking the sudo password: %v ", errMsg)
 		}
 		return nil
 	}
@@ -357,29 +364,58 @@ func showSudoEnteringDialog(g *Gui, bindString binding.String, bindCheck binding
 
 }
 
-func showDeployDialog(g *Gui) {
+func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 	var wizard *dialogWizard.Wizard
 
-	// ipToJoinEntry := widget.NewEntry()
-	// interxPortToJoinEntry := widget.NewEntry()
-	// sekaiRPCPortToJoinEntry := widget.NewEntry()
-	// sekaiP2PPortEntry := widget.NewEntry()
+	ipToJoinEntry := widget.NewEntry()
+	interxPortToJoinEntry := widget.NewEntry()
+	interxPortToJoinEntry.SetPlaceHolder("11000")
+
+	sekaiRPCPortToJoinEntry := widget.NewEntry()
+	sekaiRPCPortToJoinEntry.SetPlaceHolder("26657")
+
+	sekaiP2PPortEntry := widget.NewEntry()
+	sekaiP2PPortEntry.SetPlaceHolder("26656")
+
 	sudoPasswordBinding := binding.NewString()
 	sudoCheck := binding.NewBool()
 	sudoPasswordEntryButton := widget.NewButton("sudo password", func() {
 		showSudoEnteringDialog(g, sudoPasswordBinding, sudoCheck)
 
 	})
+
+	deployErrorBinding := binding.NewBool()
+	errorMessageBinding := binding.NewString()
 	deployButton := widget.NewButton("Deploy", func() {
 		sP, err := sudoPasswordBinding.Get()
-		cmdForDeploy := fmt.Sprintf(`echo '%v' | sudo -S bash -c "$(curl -s https://raw.githubusercontent.com/KiraCore/sekin/main/scripts/bootstrap.sh)"`, sP)
+		// cmdForDeploy := fmt.Sprintf(`echo '%v' | sudo -S sh -c "$(curl -s https://raw.githubusercontent.com/KiraCore/sekin/main/scripts/bootstrap.sh 2>&1)"`, sP)
+		cmdForDeploy := fmt.Sprintf(`echo %v`, sP)
+		log.Println(interxPortToJoinEntry.PlaceHolder, sekaiRPCPortToJoinEntry.PlaceHolder, sekaiP2PPortEntry.PlaceHolder)
 		if err != nil {
 			dialog.ShowError(err, g.Window)
 		}
-		showCmdExecDialogAndRunCmdV4(g, "Deploying", cmdForDeploy, false, binding.NewBool())
+
+		showCmdExecDialogAndRunCmdV4(g, "Deploying", cmdForDeploy, false, deployErrorBinding, errorMessageBinding)
+
+		errB, err := deployErrorBinding.Get()
+		if err != nil {
+			g.showErrorDialog(err)
+		}
+		if errB {
+			errMsg, err := errorMessageBinding.Get()
+			if err != nil {
+				g.showErrorDialog(err)
+			}
+
+			g.showErrorDialog(fmt.Errorf("error while checking the sudo password: %v ", errMsg))
+		} else {
+			doneListener.DataChanged()
+			wizard.Hide()
+		}
 		// showInfoDialog(g, "Done", "Finished")
-		// wizard.Hide()
+
 	})
+
 	closeButton := widget.NewButton("Close", func() {
 		wizard.Hide()
 	})
@@ -401,14 +437,14 @@ func showDeployDialog(g *Gui) {
 	deployButton.Disable()
 
 	content := container.NewVBox(
-		// widget.NewLabel("IP to join"),
-		// ipToJoinEntry,
-		// widget.NewLabel("sekai rpc port to join"),
-		// sekaiRPCPortToJoinEntry,
-		// widget.NewLabel("sekai P2P port to join"),
-		// sekaiP2PPortEntry,
-		// widget.NewLabel("interx port to join"),
-		// interxPortToJoinEntry,
+		widget.NewLabel("IP to join"),
+		ipToJoinEntry,
+		widget.NewLabel("sekai rpc port to join"),
+		sekaiRPCPortToJoinEntry,
+		widget.NewLabel("sekai P2P port to join"),
+		sekaiP2PPortEntry,
+		widget.NewLabel("interx port to join"),
+		interxPortToJoinEntry,
 		sudoPasswordEntryButton,
 		deployButton,
 		closeButton,
