@@ -388,8 +388,8 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 	errorMessageBinding := binding.NewString()
 	deployButton := widget.NewButton("Deploy", func() {
 		sP, err := sudoPasswordBinding.Get()
-		// cmdForDeploy := fmt.Sprintf(`echo '%v' | sudo -S sh -c "$(curl -s https://raw.githubusercontent.com/KiraCore/sekin/main/scripts/bootstrap.sh 2>&1)"`, sP)
-		cmdForDeploy := fmt.Sprintf(`echo %v`, sP)
+		cmdForDeploy := fmt.Sprintf(`echo '%v' | sudo -S sh -c "$(curl -s https://raw.githubusercontent.com/KiraCore/sekin/main/scripts/bootstrap.sh 2>&1)"`, sP)
+		// cmdForDeploy := fmt.Sprintf(`echo %v`, sP)
 		log.Println(interxPortToJoinEntry.PlaceHolder, sekaiRPCPortToJoinEntry.PlaceHolder, sekaiP2PPortEntry.PlaceHolder)
 		if err != nil {
 			dialog.ShowError(err, g.Window)
