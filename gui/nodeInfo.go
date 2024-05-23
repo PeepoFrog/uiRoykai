@@ -53,11 +53,11 @@ func makeNodeInfoScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 	publicIpBox := container.NewHBox(
 		widget.NewLabel("public ip address: "), publicIpLabel,
 	)
-	// miss change box
+	// miss chance box
 	missChanceData := binding.NewString()
 	missChanceLabel := widget.NewLabelWithData(missChanceData)
 	missChanceBox := container.NewHBox(
-		widget.NewLabel("miss change: "), missChanceLabel,
+		widget.NewLabel("miss chance: "), missChanceLabel,
 	)
 
 	refreshScreen := func() {

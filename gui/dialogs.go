@@ -16,6 +16,7 @@ import (
 
 	dialogWizard "github.com/PeepoFrog/km2UI/gui/dialogs"
 	"github.com/PeepoFrog/km2UI/helper/gssh"
+	mnemonicHelper "github.com/PeepoFrog/km2UI/helper/mnemonicHelper"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -415,7 +416,14 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 		// showInfoDialog(g, "Done", "Finished")
 
 	})
-
+	deployButton.Disable()
+	doneDataListener := binding.NewDataListener(func() {
+		deployButton.Enable()
+	})
+	mnemonicBinding := binding.NewString()
+	mnemonicConfiguratorDialogButton := widget.NewButton("mnemonic", func() {
+		showMnemonicManagerDialog(g, mnemonicBinding, doneDataListener)
+	})
 	closeButton := widget.NewButton("Close", func() {
 		wizard.Hide()
 	})
@@ -446,12 +454,15 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 		widget.NewLabel("interx port to join"),
 		interxPortToJoinEntry,
 		sudoPasswordEntryButton,
+		mnemonicConfiguratorDialogButton,
 		deployButton,
 		closeButton,
 	)
 
 	wizard = dialogWizard.NewWizard("Enter connection info", content)
 	wizard.Show(g.Window)
+	wizard.Resize(fyne.NewSize(400, 500))
+
 }
 
 type WaitDialog struct {
@@ -478,4 +489,123 @@ func (w *WaitDialog) ShowWaitDialog() {
 
 func (w *WaitDialog) HideWaitDialog() {
 	w.wizard.Hide()
+}
+
+func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneAction binding.DataListener) {
+	var wizard *dialogWizard.Wizard
+	mnemonicDisplay := container.NewGridWithColumns(2)
+	var content *fyne.Container
+	mnemonicChanged := binding.NewDataListener(func() {
+		m, err := mnemonicBinding.Get()
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
+		}
+
+		err = mnemonicHelper.ValidateMnemonic(m)
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
+		}
+		mnemonicWords := strings.Split(m, " ")
+		mnemonicDisplay.RemoveAll()
+		for i, w := range mnemonicWords {
+			mnemonicDisplay.Add(widget.NewLabel(fmt.Sprintf("%v. %v", i+1, w)))
+		}
+		content.Refresh()
+	})
+
+	closeButton := widget.NewButton("Close", func() {
+		wizard.Hide()
+	})
+
+	doneButton := widget.NewButton("Done", func() {
+		doneAction.DataChanged()
+		wizard.Hide()
+	})
+
+	enterMnemonicManuallyButton := widget.NewButton("Enter your mnemonic", func() {
+		doneEnteringMnemonicListener := binding.NewDataListener(func() {
+			mnemonicChanged.DataChanged()
+		})
+		showMnemonicEntryDialog(g, mnemonicBinding, doneEnteringMnemonicListener)
+	})
+
+	copyButton := widget.NewButtonWithIcon("Copy", theme.FileIcon(), func() {})
+
+	generateButton := widget.NewButton("Generate", func() {
+		masterMnemonic, err := mnemonicHelper.GenerateMnemonic()
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
+		}
+
+		err = mnemonicHelper.ValidateMnemonic(masterMnemonic.String())
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
+		}
+
+		err = mnemonicBinding.Set(masterMnemonic.String())
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
+		}
+		mnemonicChanged.DataChanged()
+		log.Println(mnemonicBinding.Get())
+	})
+
+	content = container.NewBorder(
+		nil,
+		container.NewVBox(enterMnemonicManuallyButton, container.NewVBox(container.NewGridWithColumns(2, generateButton, copyButton)), closeButton, doneButton),
+		nil,
+		nil,
+		mnemonicDisplay,
+	)
+
+	wizard = dialogWizard.NewWizard("Mnemonic setup", content)
+	wizard.Show(g.Window)
+	wizard.Resize(fyne.NewSize(400, 700))
+}
+
+func showMnemonicEntryDialog(g *Gui, mnemonicBinding binding.String, doneAction binding.DataListener) {
+	var wizard *dialogWizard.Wizard
+	infoLabel := widget.NewLabel("")
+	mnemonicEntry := widget.NewEntry()
+	mnemonicEntry.Wrapping = fyne.TextWrapWord
+	mnemonicEntry.MultiLine = true
+
+	closeButton := widget.NewButton("Close", func() {
+		wizard.Hide()
+	})
+
+	doneButton := widget.NewButton("Done", func() {
+		mnemonicBinding.Set(mnemonicEntry.Text)
+		doneAction.DataChanged()
+		wizard.Hide()
+	})
+	doneButton.Disable()
+
+	mnemonicEntry.OnChanged = func(s string) {
+		err := mnemonicHelper.ValidateMnemonic(mnemonicEntry.Text)
+		if err != nil {
+			infoLabel.SetText(err.Error())
+			doneButton.Disable()
+		} else {
+			infoLabel.SetText("Mnemonic is valid")
+			doneButton.Enable()
+		}
+	}
+
+	content := container.NewBorder(
+		infoLabel,
+		container.NewVBox(closeButton, doneButton),
+		nil,
+		nil,
+		mnemonicEntry,
+	)
+
+	wizard = dialogWizard.NewWizard("Mnemonic setup", content)
+	wizard.Show(g.Window)
+	wizard.Resize(fyne.NewSize(900, 200))
 }
