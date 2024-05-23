@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/PeepoFrog/km2UI/types"
 )
@@ -44,4 +46,20 @@ func GetInterxStatus(nodeIP string) (*types.Info, error) {
 	}
 	log.Printf("interx status is okay")
 	return &info, nil
+}
+
+func ValidatePortRange(portStr string) bool {
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return false // Not an integer
+	}
+	if port < 1 || port > 65535 {
+		return false // Out of valid port range
+	}
+	return true
+}
+
+func ValidateIP(input string) bool {
+	ipCheck := net.ParseIP(input)
+	return ipCheck != nil
 }

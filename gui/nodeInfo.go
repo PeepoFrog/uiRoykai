@@ -62,15 +62,17 @@ func makeNodeInfoScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 
 	refreshScreen := func() {
 		g.WaitDialog.ShowWaitDialog()
+		defer g.WaitDialog.HideWaitDialog()
 		i, err := httph.GetInterxStatus(g.Host.IP)
 		if err != nil {
+
 			return
 		}
 		err = latestBlockData.Set(i.InterxInfo.LatestBlockHeight)
 		if err != nil {
 			return
 		}
-		g.WaitDialog.HideWaitDialog()
+
 	}
 
 	refreshButton := widget.NewButton("Refresh", refreshScreen)

@@ -16,9 +16,38 @@ import (
 
 	dialogWizard "github.com/PeepoFrog/km2UI/gui/dialogs"
 	"github.com/PeepoFrog/km2UI/helper/gssh"
+	"github.com/PeepoFrog/km2UI/helper/httph"
 	mnemonicHelper "github.com/PeepoFrog/km2UI/helper/mnemonicHelper"
+	"github.com/atotto/clipboard"
 	"golang.org/x/crypto/ssh"
 )
+
+type WaitDialog struct {
+	wizard *dialogWizard.Wizard
+	g      *Gui
+}
+
+// Wait dialog init
+func NewWaitDialog(g *Gui) *WaitDialog {
+	var wizard *dialogWizard.Wizard
+
+	loadingWidget := widget.NewProgressBarInfinite()
+	content := container.NewVBox(loadingWidget)
+
+	wizard = dialogWizard.NewWizard("Loading", content)
+	return &WaitDialog{
+		wizard: wizard,
+		g:      g,
+	}
+}
+
+func (w *WaitDialog) ShowWaitDialog() {
+	w.wizard.Show(w.g.Window)
+}
+
+func (w *WaitDialog) HideWaitDialog() {
+	w.wizard.Hide()
+}
 
 func (g *Gui) ShowConnect() {
 
@@ -221,13 +250,23 @@ func (g *Gui) ShowConnect() {
 
 func (g *Gui) showErrorDialog(err error, closeListener binding.DataListener) {
 	var wizard *dialogWizard.Wizard
+
+	errorLabel := widget.NewLabel(err.Error())
+	errorLabel.Wrapping = fyne.TextWrapWord
+
 	mainDialogScreen := container.NewVBox(
-		widget.NewLabel(err.Error()),
+		errorLabel,
+		widget.NewButton("Copy", func() {
+			err = clipboard.WriteAll(errorLabel.Text)
+			if err != nil {
+				return
+			}
+		}),
 		widget.NewButton("Close", func() { wizard.Hide(); closeListener.DataChanged() }),
 	)
-	wizard = dialogWizard.NewWizard("Create ssh connection", mainDialogScreen)
+	wizard = dialogWizard.NewWizard("Error", mainDialogScreen)
 	wizard.Show(g.Window)
-	wizard.Resize(fyne.NewSize(300, 200))
+	wizard.Resize(fyne.NewSize(400, 200))
 
 }
 
@@ -289,9 +328,9 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 	closeButton.Show()
 	errcheck := <-errorChannel
 	if errcheck.Err != nil {
-		log.Printf("Unable to execute executing: <%v>, error: %v", cmd, errcheck.Err.Error())
+		log.Printf("Unable to execute executing: <%v>, error: %v, %v ", cmd, errcheck.Err.Error(), string(out))
 		errorBinding.Set(true)
-		errorMessageBinding.Set(errcheck.Err.Error())
+		errorMessageBinding.Set(fmt.Sprintf("Out: %v, Error: %v", string(out), errcheck.Err.Error()))
 		statusMsg.Set(fmt.Sprintf("Error:\n%s", errcheck.Err))
 	} else {
 		errorBinding.Set(false)
@@ -313,17 +352,6 @@ func showSudoEnteringDialog(g *Gui, bindString binding.String, bindCheck binding
 	errorMessageBinding := binding.NewString()
 	checkSudoPassword := func(p string) error {
 		cmd := fmt.Sprintf("echo '%v' | sudo -S uname", p)
-		// outputChannel := make(chan string)
-		// errorChannel := make(chan gssh.ResultV2)
-		// go gssh.ExecuteSSHCommandV2(g.sshClient, cmd, outputChannel, errorChannel)
-		// for line := range outputChannel {
-		// 	log.Println(line)
-		// }
-		// errcheck := <-errorChannel
-		// if errcheck.Err != nil {
-		// 	log.Println(errcheck.Err)
-		// 	return errcheck.Err
-		// }
 		errB := binding.NewBool()
 		showCmdExecDialogAndRunCmdV4(g, "checking sudo password", cmd, true, errB, errorMessageBinding)
 		errExec, _ := errB.Get()
@@ -369,6 +397,7 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 	var wizard *dialogWizard.Wizard
 
 	ipToJoinEntry := widget.NewEntry()
+
 	interxPortToJoinEntry := widget.NewEntry()
 	interxPortToJoinEntry.SetPlaceHolder("11000")
 
@@ -378,75 +407,196 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 	sekaiP2PPortEntry := widget.NewEntry()
 	sekaiP2PPortEntry.SetPlaceHolder("26656")
 
-	sudoPasswordBinding := binding.NewString()
-	sudoCheck := binding.NewBool()
-	sudoPasswordEntryButton := widget.NewButton("sudo password", func() {
-		showSudoEnteringDialog(g, sudoPasswordBinding, sudoCheck)
+	localCheckBinding := binding.NewBool()
+	localCheck := widget.NewCheckWithData("local", localCheckBinding)
 
+	sudoPasswordBinding := binding.NewString()
+	mnemonicBinding := binding.NewString()
+	sudoCheck := binding.NewBool()
+	mnemonicCheck := binding.NewBool()
+
+	sudoPasswordEntryButton := widget.NewButtonWithIcon("sudo password", theme.CancelIcon(), func() {
+		showSudoEnteringDialog(g, sudoPasswordBinding, sudoCheck)
 	})
+
+	doneMnemonicDataListener := binding.NewDataListener(func() {
+		err := mnemonicCheck.Set(true)
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
+		}
+		confirmedMnemonic, err := mnemonicBinding.Get()
+		log.Println("Confirmed mnemonic:", confirmedMnemonic, err)
+	})
+	mnemonicManagerDialogButton := widget.NewButtonWithIcon("mnemonic", theme.CancelIcon(), func() {
+		showMnemonicManagerDialog(g, mnemonicBinding, doneMnemonicDataListener)
+	})
+
+	constructJoinCmd := func() (string, error) {
+		rpcPort := sekaiRPCPortToJoinEntry.Text
+		if rpcPort == "" {
+			rpcPort = sekaiRPCPortToJoinEntry.PlaceHolder
+		} else {
+			validate := httph.ValidatePortRange(rpcPort)
+			if !validate {
+				sekaiP2PPortEntry.SetValidationError(fmt.Errorf("invalid port"))
+				return "", fmt.Errorf("RPC port is not valid")
+			}
+		}
+		p2pPort := sekaiP2PPortEntry.Text
+		if p2pPort == "" {
+			p2pPort = sekaiP2PPortEntry.PlaceHolder
+		} else {
+			validate := httph.ValidatePortRange(p2pPort)
+			if !validate {
+				return "", fmt.Errorf("P2P port is not valid")
+			}
+		}
+		interxPort := interxPortToJoinEntry.Text
+		if interxPort == "" {
+			interxPort = interxPortToJoinEntry.PlaceHolder
+		} else {
+			validate := httph.ValidatePortRange(rpcPort)
+			if !validate {
+				return "", fmt.Errorf("interx port is not valid")
+			}
+		}
+
+		ip := ipToJoinEntry.Text
+		validate := httph.ValidateIP(ip)
+		if !validate {
+			return "", fmt.Errorf(`ip <%v> is not valid`, ip)
+		}
+
+		mnemonic, err := mnemonicBinding.Get()
+		if err != nil {
+			return "", err
+		}
+
+		lCheck, err := localCheckBinding.Get()
+		if err != nil {
+			return "", err
+		}
+		cmd := fmt.Sprintf(`curl --silent --show-error --fail -X POST http://localhost:8282/api/execute -H "Content-Type: application/json" -d '{
+			"command": "join",
+			"args": {
+				"ip": "%v",
+				"interxPort": %v,
+				"rpcPort": %v,
+				"p2pPort": %v,
+				"mnemonic": "%v",
+				"local": %v,
+				"enableInterx": %v
+			}
+		}'`, ip, interxPort, rpcPort, p2pPort, mnemonic, lCheck, true)
+		return cmd, nil
+	}
 
 	deployErrorBinding := binding.NewBool()
 	errorMessageBinding := binding.NewString()
+
 	deployButton := widget.NewButton("Deploy", func() {
-		sP, err := sudoPasswordBinding.Get()
-		cmdForDeploy := fmt.Sprintf(`echo '%v' | sudo -S sh -c "$(curl -s https://raw.githubusercontent.com/KiraCore/sekin/main/scripts/bootstrap.sh 2>&1)"`, sP)
-		// cmdForDeploy := fmt.Sprintf(`echo %v`, sP)
-		log.Println(interxPortToJoinEntry.PlaceHolder, sekaiRPCPortToJoinEntry.PlaceHolder, sekaiP2PPortEntry.PlaceHolder)
+		cmdForJoin, err := constructJoinCmd()
 		if err != nil {
-			dialog.ShowError(err, g.Window)
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
 		}
 
-		showCmdExecDialogAndRunCmdV4(g, "Deploying", cmdForDeploy, false, deployErrorBinding, errorMessageBinding)
+		sP, err := sudoPasswordBinding.Get()
+		if err != nil {
+			dialog.ShowError(err, g.Window)
+			return
+		}
+		cmdForDeploy := fmt.Sprintf(`echo '%v' | sudo -S sh -c "$(curl -s --show-error --fail https://raw.githubusercontent.com/KiraCore/sekin/main/scripts/bootstrap.sh 2>&1)"`, sP)
+		// cmdForDeploy = fmt.Sprintf(`echo %v`, sP)
+		showCmdExecDialogAndRunCmdV4(g, "Deploying", cmdForDeploy, true, deployErrorBinding, errorMessageBinding)
 
 		errB, err := deployErrorBinding.Get()
 		if err != nil {
 			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
 		}
 		if errB {
 			errMsg, err := errorMessageBinding.Get()
 			if err != nil {
 				g.showErrorDialog(err, binding.NewDataListener(func() {}))
+				return
 			}
-
 			g.showErrorDialog(fmt.Errorf("error while checking the sudo password: %v ", errMsg), binding.NewDataListener(func() {}))
-		} else {
-			doneListener.DataChanged()
-			wizard.Hide()
-		}
-		// showInfoDialog(g, "Done", "Finished")
-
-	})
-	deployButton.Disable()
-	doneDataListener := binding.NewDataListener(func() {
-		deployButton.Enable()
-	})
-	mnemonicBinding := binding.NewString()
-	mnemonicConfiguratorDialogButton := widget.NewButton("mnemonic", func() {
-		showMnemonicManagerDialog(g, mnemonicBinding, doneDataListener)
-	})
-	closeButton := widget.NewButton("Close", func() {
-		wizard.Hide()
-	})
-	sudoCheck.AddListener(binding.NewDataListener(func() {
-		check, err := sudoCheck.Get()
-		if err != nil {
 			return
 		}
-		if check {
+
+		showCmdExecDialogAndRunCmdV4(g, "Joining", cmdForJoin, false, deployErrorBinding, errorMessageBinding)
+
+		errB, err = deployErrorBinding.Get()
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
+		}
+		if errB {
+			errMsg, err := errorMessageBinding.Get()
+			if err != nil {
+				g.showErrorDialog(err, binding.NewDataListener(func() {}))
+				return
+			}
+			g.showErrorDialog(fmt.Errorf("error when executing join command: %v ", errMsg), binding.NewDataListener(func() {}))
+			return
+		}
+
+		doneListener.DataChanged()
+		wizard.Hide()
+
+	})
+
+	deployButton.Disable()
+
+	deployActivatorDataListener := binding.NewDataListener(func() {
+		sCheck, err := sudoCheck.Get()
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
+		}
+		if sCheck {
+			sudoPasswordEntryButton.Icon = theme.ConfirmIcon()
+			sudoPasswordEntryButton.Refresh()
+		} else {
+			sudoPasswordEntryButton.Icon = theme.CancelIcon()
+			sudoPasswordEntryButton.Refresh()
+		}
+		mCheck, err := mnemonicCheck.Get()
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+			return
+		}
+		if mCheck {
+			log.Println("changing mnemonicButtonIcon")
+			mnemonicManagerDialogButton.Icon = theme.ConfirmIcon()
+			mnemonicManagerDialogButton.Refresh()
+		} else {
+			mnemonicManagerDialogButton.Icon = theme.CancelIcon()
+			mnemonicManagerDialogButton.Refresh()
+		}
+
+		if sCheck && mCheck {
 			deployButton.Enable()
 		} else {
 			if !deployButton.Disabled() {
 				deployButton.Disable()
 			}
 		}
+	})
 
-	}))
+	closeButton := widget.NewButton("Close", func() {
+		wizard.Hide()
+	})
 
-	deployButton.Disable()
+	mnemonicCheck.AddListener(deployActivatorDataListener)
+	sudoCheck.AddListener(deployActivatorDataListener)
 
 	content := container.NewVBox(
 		widget.NewLabel("IP to join"),
 		ipToJoinEntry,
+		localCheck,
 		widget.NewLabel("sekai rpc port to join"),
 		sekaiRPCPortToJoinEntry,
 		widget.NewLabel("sekai P2P port to join"),
@@ -454,7 +604,7 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 		widget.NewLabel("interx port to join"),
 		interxPortToJoinEntry,
 		sudoPasswordEntryButton,
-		mnemonicConfiguratorDialogButton,
+		mnemonicManagerDialogButton,
 		deployButton,
 		closeButton,
 	)
@@ -465,36 +615,35 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 
 }
 
-type WaitDialog struct {
-	wizard *dialogWizard.Wizard
-	g      *Gui
-}
-
-func NewWaitDialog(g *Gui) *WaitDialog {
-	var wizard *dialogWizard.Wizard
-
-	loadingWidget := widget.NewProgressBarInfinite()
-	content := container.NewVBox(loadingWidget)
-
-	wizard = dialogWizard.NewWizard("Loading", content)
-	return &WaitDialog{
-		wizard: wizard,
-		g:      g,
-	}
-}
-
-func (w *WaitDialog) ShowWaitDialog() {
-	w.wizard.Show(w.g.Window)
-}
-
-func (w *WaitDialog) HideWaitDialog() {
-	w.wizard.Hide()
-}
-
 func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneAction binding.DataListener) {
 	var wizard *dialogWizard.Wizard
 	mnemonicDisplay := container.NewGridWithColumns(2)
+	// generatedBinding := binding.NewString()
+	warningConfirmDataListener := binding.NewDataListener(func() {
+		doneAction.DataChanged()
+		wizard.Hide()
+	})
+	doneButton := widget.NewButton("Done", func() {
+		showMnemonicWarningMessage(g, warningConfirmDataListener)
+	})
+	doneButton.Disable()
 	var content *fyne.Container
+
+	// doing this to display mnemonic if it was already generated
+	m, err := mnemonicBinding.Get()
+	if err != nil {
+		g.showErrorDialog(err, binding.NewDataListener(func() {}))
+		return
+	}
+	if m != "" {
+		mnemonicWords := strings.Split(m, " ")
+		mnemonicDisplay.RemoveAll()
+		for i, w := range mnemonicWords {
+			mnemonicDisplay.Add(widget.NewLabel(fmt.Sprintf("%v. %v", i+1, w)))
+		}
+	}
+	//
+
 	mnemonicChanged := binding.NewDataListener(func() {
 		m, err := mnemonicBinding.Get()
 		if err != nil {
@@ -507,6 +656,7 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 			g.showErrorDialog(err, binding.NewDataListener(func() {}))
 			return
 		}
+		doneButton.Enable()
 		mnemonicWords := strings.Split(m, " ")
 		mnemonicDisplay.RemoveAll()
 		for i, w := range mnemonicWords {
@@ -514,13 +664,9 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 		}
 		content.Refresh()
 	})
+	// mnemonicChanged.DataChanged()
 
 	closeButton := widget.NewButton("Close", func() {
-		wizard.Hide()
-	})
-
-	doneButton := widget.NewButton("Done", func() {
-		doneAction.DataChanged()
 		wizard.Hide()
 	})
 
@@ -531,7 +677,18 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 		showMnemonicEntryDialog(g, mnemonicBinding, doneEnteringMnemonicListener)
 	})
 
-	copyButton := widget.NewButtonWithIcon("Copy", theme.FileIcon(), func() {})
+	copyButton := widget.NewButtonWithIcon("Copy", theme.FileIcon(), func() {
+		data, err := mnemonicBinding.Get()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		err = clipboard.WriteAll(data)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	})
 
 	generateButton := widget.NewButton("Generate", func() {
 		masterMnemonic, err := mnemonicHelper.GenerateMnemonic()
@@ -571,6 +728,7 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 func showMnemonicEntryDialog(g *Gui, mnemonicBinding binding.String, doneAction binding.DataListener) {
 	var wizard *dialogWizard.Wizard
 	infoLabel := widget.NewLabel("")
+	infoLabel.Wrapping = fyne.TextWrapWord
 	mnemonicEntry := widget.NewEntry()
 	mnemonicEntry.Wrapping = fyne.TextWrapWord
 	mnemonicEntry.MultiLine = true
@@ -589,7 +747,7 @@ func showMnemonicEntryDialog(g *Gui, mnemonicBinding binding.String, doneAction 
 	mnemonicEntry.OnChanged = func(s string) {
 		err := mnemonicHelper.ValidateMnemonic(mnemonicEntry.Text)
 		if err != nil {
-			infoLabel.SetText(err.Error())
+			infoLabel.SetText("Mnemonic is not valid")
 			doneButton.Disable()
 		} else {
 			infoLabel.SetText("Mnemonic is valid")
@@ -602,10 +760,36 @@ func showMnemonicEntryDialog(g *Gui, mnemonicBinding binding.String, doneAction 
 		container.NewVBox(closeButton, doneButton),
 		nil,
 		nil,
-		mnemonicEntry,
+		(mnemonicEntry),
 	)
 
 	wizard = dialogWizard.NewWizard("Mnemonic setup", content)
 	wizard.Show(g.Window)
 	wizard.Resize(fyne.NewSize(900, 200))
+}
+
+func showMnemonicWarningMessage(g *Gui, confirmAction binding.DataListener) {
+	var wizard *dialogWizard.Wizard
+
+	warningInfoLabel := widget.NewLabel(`By clicking "Proceed," you confirm that you have saved your mnemonic. You will no longer be able to see your mnemonic a second time. Make sure you have securely stored it before proceeding.
+If you have not please press "Return" and save your mnemonic.`)
+
+	warningInfoLabel.Wrapping = fyne.TextWrapWord
+	warningInfoLabel.Importance = widget.DangerImportance
+	proceedButton := widget.NewButtonWithIcon("Proceed", theme.ConfirmIcon(), func() {
+		wizard.Hide()
+		confirmAction.DataChanged()
+	})
+	returnButton := widget.NewButton("Return", func() { wizard.Hide() })
+
+	content := container.NewBorder(
+		nil,
+		container.NewGridWithColumns(2, proceedButton, returnButton),
+		nil,
+		nil,
+		warningInfoLabel,
+	)
+	wizard = dialogWizard.NewWizard("WARNING!", content)
+	wizard.Show(g.Window)
+	wizard.Resize(fyne.NewSize(500, 400))
 }
