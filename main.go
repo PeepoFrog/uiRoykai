@@ -7,8 +7,8 @@ import (
 )
 
 func main() {
-	a := app.NewWithID("Kira Manager 2.0")
-	w := a.NewWindow("Kira Manager 2.0")
+	a := app.NewWithID("Kensho")
+	w := a.NewWindow("Kensho")
 	w.SetMaster()
 	w.Resize(fyne.NewSize(1024, 768))
 	g := gui.Gui{

@@ -65,7 +65,6 @@ func makeNodeInfoScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		defer g.WaitDialog.HideWaitDialog()
 		i, err := httph.GetInterxStatus(g.Host.IP)
 		if err != nil {
-
 			return
 		}
 		err = latestBlockData.Set(i.InterxInfo.LatestBlockHeight)

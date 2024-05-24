@@ -10,7 +10,7 @@ type Tab struct {
 var (
 	Tabs = map[string]Tab{
 		"status": {
-			Title: "Status screen",
+			Title: "Startup",
 			Info:  "",
 			View:  makeStatusScreen,
 		},
@@ -20,7 +20,7 @@ var (
 			View:  makeNodeInfoScreen,
 		},
 		"networkTree": {
-			Title: "Network tree",
+			Title: "Network visor",
 			Info:  "",
 			View:  makeNetworkTreeScreen,
 		},

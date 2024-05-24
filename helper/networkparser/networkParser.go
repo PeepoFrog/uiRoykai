@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"sync"
 	"time"
 
@@ -22,15 +23,20 @@ type Node struct {
 	NCPeers int
 }
 
+type BlacklistedNode struct {
+	IP    string
+	Error []error
+}
+
 // get nodes that are available by 11000 port
-func GetAllNodesV3(ctx context.Context, firstNode string, depth int, ignoreDepth bool) (map[string]Node, error) {
+func GetAllNodesV3(ctx context.Context, firstNode string, depth int, ignoreDepth bool) (map[string]Node, map[string]BlacklistedNode, error) {
 	nodesPool := make(map[string]Node)
-	blacklist := make(map[string]string)
+	blacklist := make(map[string]BlacklistedNode)
 	processed := make(map[string]string)
 	client := http.DefaultClient
 	node, err := GetNetInfoFromInterx(ctx, client, firstNode)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var wg sync.WaitGroup
@@ -42,11 +48,12 @@ func GetAllNodesV3(ctx context.Context, firstNode string, depth int, ignoreDepth
 	wg.Wait()
 	fmt.Println()
 	log.Printf("\nTotal saved peers:%v\nOriginal node peer count: %v\nBlacklisted nodes(not reachable): %v\n", len(nodesPool), len(node.Peers), len(blacklist))
+	log.Printf("BlackListed: %+v ", blacklist)
 
-	return nodesPool, nil
+	return nodesPool, blacklist, nil
 }
 
-func loopFunc(ctx context.Context, wg *sync.WaitGroup, client *http.Client, pool map[string]Node, blacklist, processed map[string]string, ip string, currentDepth, totalDepth int, ignoreDepth bool) {
+func loopFunc(ctx context.Context, wg *sync.WaitGroup, client *http.Client, pool map[string]Node, blacklist map[string]BlacklistedNode, processed map[string]string, ip string, currentDepth, totalDepth int, ignoreDepth bool) {
 
 	defer wg.Done()
 	if !ignoreDepth {
@@ -80,12 +87,13 @@ func loopFunc(ctx context.Context, wg *sync.WaitGroup, client *http.Client, pool
 
 	currentDepth++
 
-	var localWaitGroup sync.WaitGroup
-
 	var nodeInfo *interxendpointtypes.NetInfo
 	var status *interxendpointtypes.Status
 	var errNetInfo error
 	var errStatus error
+
+	//local wait group
+	var localWaitGroup sync.WaitGroup
 	localWaitGroup.Add(2)
 	go func() {
 		defer localWaitGroup.Done()
@@ -95,14 +103,15 @@ func loopFunc(ctx context.Context, wg *sync.WaitGroup, client *http.Client, pool
 		defer localWaitGroup.Done()
 		status, errStatus = GetStatusFromInterx(ctx, client, ip)
 	}()
-
 	localWaitGroup.Wait()
+	// nodeInfo, errNetInfo = GetNetInfoFromInterx(ctx, client, ip)
+	// status, errStatus = GetStatusFromInterx(ctx, client, ip)
 
 	if errNetInfo != nil || errStatus != nil {
 		// log.Printf("%v", err.Error())
 		mu.Lock()
 		log.Printf("adding <%v> to blacklist", ip)
-		blacklist[ip] = ip
+		blacklist[ip] = BlacklistedNode{IP: ip, Error: []error{errNetInfo, errStatus}}
 		cleanValue(processed, ip)
 		mu.Unlock()
 		// defer localWaitGroup.Done()
@@ -111,15 +120,19 @@ func loopFunc(ctx context.Context, wg *sync.WaitGroup, client *http.Client, pool
 
 	mu.Lock()
 	log.Printf("adding <%v> to the pool, nPeers: %v", ip, nodeInfo.NPeers)
-	log.Println(status.NodeInfo.ID)
 
 	node := Node{
 		IP:      ip,
 		NCPeers: nodeInfo.NPeers,
 		ID:      status.NodeInfo.ID,
 	}
+
 	for _, nn := range nodeInfo.Peers {
-		node.Peers = append(node.Peers, Node{IP: nn.RemoteIP, ID: nn.NodeInfo.ID})
+		ip, port, err := extractIP(nn.NodeInfo.ListenAddr)
+		if err != nil {
+			continue
+		}
+		node.Peers = append(node.Peers, Node{IP: fmt.Sprintf("%v:%v", ip, port), ID: nn.NodeInfo.ID})
 	}
 
 	pool[ip] = node
@@ -129,6 +142,18 @@ func loopFunc(ctx context.Context, wg *sync.WaitGroup, client *http.Client, pool
 	for _, p := range nodeInfo.Peers {
 		wg.Add(1)
 		go loopFunc(ctx, wg, client, pool, blacklist, processed, p.RemoteIP, currentDepth, totalDepth, ignoreDepth)
+
+		listenAddr, _, err := extractIP(p.NodeInfo.ListenAddr)
+		if err != nil {
+			continue
+		} else {
+			if listenAddr != p.RemoteIP {
+				log.Printf("listen addr (%v) and remoteIp (%v) are not the same, creating new goroutine for listen addr", listenAddr, p.RemoteIP)
+				wg.Add(1)
+				go loopFunc(ctx, wg, client, pool, blacklist, processed, listenAddr, currentDepth, totalDepth, ignoreDepth)
+			}
+		}
+
 	}
 
 }
@@ -137,7 +162,7 @@ func cleanValue(toClean map[string]string, key string) {
 	delete(toClean, key)
 }
 
-const TimeOutDelay time.Duration = time.Second * 3
+const TimeOutDelay time.Duration = time.Second * 5
 
 func GetNetInfoFromInterx(ctx context.Context, client *http.Client, ip string) (*interxendpointtypes.NetInfo, error) {
 
@@ -196,4 +221,14 @@ func GetStatusFromInterx(ctx context.Context, client *http.Client, ip string) (*
 		return nil, err
 	}
 	return &nodeStatus, nil
+}
+
+func extractIP(input string) (ip string, port string, err error) {
+	// Regular expression to match IP addresses
+	re := regexp.MustCompile(`tcp://([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+):([0-9]+)`)
+	matches := re.FindStringSubmatch(input)
+	if len(matches) < 3 {
+		return "", "", fmt.Errorf("no IP address or port found in input")
+	}
+	return matches[1], matches[2], nil
 }

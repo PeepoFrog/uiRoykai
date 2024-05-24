@@ -229,7 +229,7 @@ func (g *Gui) ShowConnect() {
 		connectButton := widget.NewButton("Connect to remote host", func() { submitFunc() })
 
 		logging := container.NewVBox(
-			widget.NewLabel("Ip and port"),
+			widget.NewLabel("IP and Port"),
 			// ipEntry,
 			addresBoxEntry,
 			widget.NewLabel("User"),
@@ -415,7 +415,7 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 	sudoCheck := binding.NewBool()
 	mnemonicCheck := binding.NewBool()
 
-	sudoPasswordEntryButton := widget.NewButtonWithIcon("sudo password", theme.CancelIcon(), func() {
+	sudoPasswordEntryButton := widget.NewButtonWithIcon("Password (sudo)", theme.CancelIcon(), func() {
 		showSudoEnteringDialog(g, sudoPasswordBinding, sudoCheck)
 	})
 
@@ -428,7 +428,7 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 		confirmedMnemonic, err := mnemonicBinding.Get()
 		log.Println("Confirmed mnemonic:", confirmedMnemonic, err)
 	})
-	mnemonicManagerDialogButton := widget.NewButtonWithIcon("mnemonic", theme.CancelIcon(), func() {
+	mnemonicManagerDialogButton := widget.NewButtonWithIcon("Mnemonic", theme.CancelIcon(), func() {
 		showMnemonicManagerDialog(g, mnemonicBinding, doneMnemonicDataListener)
 	})
 
@@ -569,7 +569,6 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 			return
 		}
 		if mCheck {
-			log.Println("changing mnemonicButtonIcon")
 			mnemonicManagerDialogButton.Icon = theme.ConfirmIcon()
 			mnemonicManagerDialogButton.Refresh()
 		} else {
@@ -594,14 +593,14 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 	sudoCheck.AddListener(deployActivatorDataListener)
 
 	content := container.NewVBox(
-		widget.NewLabel("IP to join"),
+		widget.NewLabel("Trusted IP address"),
 		ipToJoinEntry,
 		localCheck,
-		widget.NewLabel("sekai rpc port to join"),
+		widget.NewLabel("RPC Port"),
 		sekaiRPCPortToJoinEntry,
-		widget.NewLabel("sekai P2P port to join"),
+		widget.NewLabel("P2P Port"),
 		sekaiP2PPortEntry,
-		widget.NewLabel("interx port to join"),
+		widget.NewLabel("Interx Port"),
 		interxPortToJoinEntry,
 		sudoPasswordEntryButton,
 		mnemonicManagerDialogButton,
@@ -609,7 +608,7 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 		closeButton,
 	)
 
-	wizard = dialogWizard.NewWizard("Enter connection info", content)
+	wizard = dialogWizard.NewWizard("Connect", content)
 	wizard.Show(g.Window)
 	wizard.Resize(fyne.NewSize(400, 500))
 
@@ -618,8 +617,16 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneAction binding.DataListener) {
 	var wizard *dialogWizard.Wizard
 	mnemonicDisplay := container.NewGridWithColumns(2)
-	// generatedBinding := binding.NewString()
+	localMnemonicBinding := binding.NewString()
 	warningConfirmDataListener := binding.NewDataListener(func() {
+		lMnemonic, err := localMnemonicBinding.Get()
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+		}
+		err = mnemonicBinding.Set(lMnemonic)
+		if err != nil {
+			g.showErrorDialog(err, binding.NewDataListener(func() {}))
+		}
 		doneAction.DataChanged()
 		wizard.Hide()
 	})
@@ -645,7 +652,7 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 	//
 
 	mnemonicChanged := binding.NewDataListener(func() {
-		m, err := mnemonicBinding.Get()
+		m, err := localMnemonicBinding.Get()
 		if err != nil {
 			g.showErrorDialog(err, binding.NewDataListener(func() {}))
 			return
@@ -664,7 +671,6 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 		}
 		content.Refresh()
 	})
-	// mnemonicChanged.DataChanged()
 
 	closeButton := widget.NewButton("Close", func() {
 		wizard.Hide()
@@ -678,7 +684,7 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 	})
 
 	copyButton := widget.NewButtonWithIcon("Copy", theme.FileIcon(), func() {
-		data, err := mnemonicBinding.Get()
+		data, err := localMnemonicBinding.Get()
 		if err != nil {
 			log.Println(err)
 			return
@@ -703,13 +709,13 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 			return
 		}
 
-		err = mnemonicBinding.Set(masterMnemonic.String())
+		err = localMnemonicBinding.Set(masterMnemonic.String())
 		if err != nil {
 			g.showErrorDialog(err, binding.NewDataListener(func() {}))
 			return
 		}
 		mnemonicChanged.DataChanged()
-		log.Println(mnemonicBinding.Get())
+		log.Println(localMnemonicBinding.Get())
 	})
 
 	content = container.NewBorder(
@@ -732,7 +738,6 @@ func showMnemonicEntryDialog(g *Gui, mnemonicBinding binding.String, doneAction 
 	mnemonicEntry := widget.NewEntry()
 	mnemonicEntry.Wrapping = fyne.TextWrapWord
 	mnemonicEntry.MultiLine = true
-
 	closeButton := widget.NewButton("Close", func() {
 		wizard.Hide()
 	})

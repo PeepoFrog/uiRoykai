@@ -19,8 +19,8 @@ type Host struct {
 }
 
 func (g *Gui) MakeGui() fyne.CanvasObject {
-	title := widget.NewLabel("KM 2.0")
-	info := widget.NewLabel("Welcome to Kira manager 2. Navigate trough panel on the left side")
+	title := widget.NewLabel("Kensho")
+	info := widget.NewLabel("Welcome to  Kensho. Navigate trough panel on the left side")
 	// g.content = container.NewStack()
 	mainWindow := container.NewStack()
 
