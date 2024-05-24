@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -254,19 +255,23 @@ func (g *Gui) showErrorDialog(err error, closeListener binding.DataListener) {
 	errorLabel := widget.NewLabel(err.Error())
 	errorLabel.Wrapping = fyne.TextWrapWord
 
-	mainDialogScreen := container.NewVBox(
-		errorLabel,
-		widget.NewButton("Copy", func() {
-			err = clipboard.WriteAll(errorLabel.Text)
-			if err != nil {
-				return
-			}
-		}),
-		widget.NewButton("Close", func() { wizard.Hide(); closeListener.DataChanged() }),
-	)
+	mainDialogScreen :=
+		container.NewBorder(nil, container.NewVBox(
+
+			widget.NewButton("Copy", func() {
+				err = clipboard.WriteAll(errorLabel.Text)
+				if err != nil {
+					return
+				}
+			}),
+			widget.NewButton("Close", func() { wizard.Hide(); closeListener.DataChanged() }),
+		), nil, nil,
+
+			container.NewVScroll(errorLabel),
+		)
 	wizard = dialogWizard.NewWizard("Error", mainDialogScreen)
 	wizard.Show(g.Window)
-	wizard.Resize(fyne.NewSize(400, 200))
+	wizard.Resize(fyne.NewSize(400, 400))
 
 }
 
@@ -291,6 +296,7 @@ func showInfoDialog(g *Gui, infoTitle, infoString string) {
 func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCheck bool, errorBinding binding.Bool, errorMessageBinding binding.String) {
 	outputChannel := make(chan string)
 	errorChannel := make(chan gssh.ResultV2)
+	// go gssh.ExecuteSSHCommandV2(g.sshClient, cmd, outputChannel, errorChannel)
 	go gssh.ExecuteSSHCommandV2(g.sshClient, cmd, outputChannel, errorChannel)
 
 	var wizard *dialogWizard.Wizard
@@ -300,8 +306,11 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 	loadingWidget := widget.NewProgressBarInfinite()
 
 	label := widget.NewLabelWithData(outputMsg)
+	label.Wrapping = fyne.TextWrapWord
+
 	closeButton := widget.NewButton("Done", func() { wizard.Hide() })
 	outputScroll := container.NewVScroll(label)
+
 	loadingDialog := container.NewBorder(
 		widget.NewLabelWithData(statusMsg),
 		container.NewVBox(loadingWidget, closeButton),
@@ -317,16 +326,28 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 		defer wizard.Hide()
 	}
 	var out string
-	for line := range outputChannel {
-		cleanLine := cleanString(line)
-		out = fmt.Sprintf("%s\n%s", out, cleanLine)
-		outputMsg.Set(out)
-		outputScroll.ScrollToBottom()
-	}
-	outputScroll.ScrollToBottom()
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for line := range outputChannel {
+			cleanLine := cleanString(line)
+			out = fmt.Sprintf("%s\n%s", out, cleanLine)
+			outputMsg.Set(out)
+			outputScroll.ScrollToBottom()
+		}
+	}()
+	var errcheck gssh.ResultV2
+	go func() {
+		defer wg.Done()
+
+		errcheck = <-errorChannel
+	}()
+
+	wg.Wait()
+
 	loadingWidget.Hide()
 	closeButton.Show()
-	errcheck := <-errorChannel
 	if errcheck.Err != nil {
 		log.Printf("Unable to execute executing: <%v>, error: %v, %v ", cmd, errcheck.Err.Error(), string(out))
 		errorBinding.Set(true)
@@ -337,7 +358,7 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 		wizard.ChangeTitle("Done")
 		statusMsg.Set("Successes")
 	}
-
+	outputScroll.ScrollToBottom()
 }
 
 func cleanString(s string) string {
@@ -526,7 +547,7 @@ func showDeployDialog(g *Gui, doneListener binding.DataListener) {
 			return
 		}
 
-		showCmdExecDialogAndRunCmdV4(g, "Joining", cmdForJoin, false, deployErrorBinding, errorMessageBinding)
+		showCmdExecDialogAndRunCmdV4(g, "Joining", cmdForJoin, true, deployErrorBinding, errorMessageBinding)
 
 		errB, err = deployErrorBinding.Get()
 		if err != nil {
@@ -733,7 +754,7 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 
 func showMnemonicEntryDialog(g *Gui, mnemonicBinding binding.String, doneAction binding.DataListener) {
 	var wizard *dialogWizard.Wizard
-	infoLabel := widget.NewLabel("")
+	infoLabel := widget.NewLabel("Enter your mnemonic")
 	infoLabel.Wrapping = fyne.TextWrapWord
 	mnemonicEntry := widget.NewEntry()
 	mnemonicEntry.Wrapping = fyne.TextWrapWord

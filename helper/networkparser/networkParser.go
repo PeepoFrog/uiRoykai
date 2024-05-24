@@ -48,7 +48,7 @@ func GetAllNodesV3(ctx context.Context, firstNode string, depth int, ignoreDepth
 	wg.Wait()
 	fmt.Println()
 	log.Printf("\nTotal saved peers:%v\nOriginal node peer count: %v\nBlacklisted nodes(not reachable): %v\n", len(nodesPool), len(node.Peers), len(blacklist))
-	log.Printf("BlackListed: %+v ", blacklist)
+	// log.Printf("BlackListed: %+v ", blacklist)
 
 	return nodesPool, blacklist, nil
 }
