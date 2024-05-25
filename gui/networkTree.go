@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -11,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/PeepoFrog/km2UI/helper/networkparser"
+	"github.com/atotto/clipboard"
 )
 
 func makeNetworkTreeScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
@@ -27,37 +29,39 @@ func makeNetworkTreeScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		i++
 	}
 
-	infoData := make([]networkparser.Node, 0)
+	// infoData := make([]networkparser.Node, 0)
 
-	infoList := widget.NewList(
-		func() int {
-			return len(infoData)
-		},
-		func() fyne.CanvasObject {
-			return container.NewHBox(widget.NewIcon(theme.DocumentIcon()), widget.NewLabel("Template Object"))
+	// infoList := widget.NewList(
+	// 	func() int {
+	// 		return len(infoData)
+	// 	},
+	// 	func() fyne.CanvasObject {
+	// 		return container.NewHBox(widget.NewIcon(theme.DocumentIcon()), widget.NewLabel("Template Object"))
 
-		},
-		func(id widget.ListItemID, item fyne.CanvasObject) {
-			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(fmt.Sprintf("%v@%v", infoData[id].ID, infoData[id].IP))
-		},
-	)
-
+	// 	},
+	// 	func(id widget.ListItemID, item fyne.CanvasObject) {
+	// 		item.(*fyne.Container).Objects[1].(*widget.Label).SetText(fmt.Sprintf("%v@%v", infoData[id].ID, infoData[id].IP))
+	// 	},
+	// )
 	list := widget.NewList(
 		func() int {
 			return len(nodes)
 		},
 		func() fyne.CanvasObject {
-			return container.NewHBox(widget.NewIcon(theme.DocumentIcon()), widget.NewLabel("Template Object"))
+			return container.NewHBox(widget.NewIcon(theme.ComputerIcon()), widget.NewLabel("Template Object"))
 		},
 		func(id widget.ListItemID, item fyne.CanvasObject) {
-			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(fmt.Sprintf("%v@%v", data[id].ID, data[id].IP))
+			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(fmt.Sprintf("%v@%v Peers: %v", data[id].ID, data[id].IP, data[id].NCPeers))
 		},
 	)
 
 	list.OnSelected = func(id widget.ListItemID) {
-		infoData = data[id].Peers
-		infoList.Refresh()
+		err := clipboard.WriteAll(fmt.Sprintf("tcp://%v@%v", data[id].ID, data[id].IP))
+		if err != nil {
+			log.Println(err)
+		}
 	}
+
 	doneListener := binding.NewDataListener(func() {
 		defer g.WaitDialog.HideWaitDialog()
 	})
@@ -85,12 +89,17 @@ func makeNetworkTreeScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 			// fmt.Println(data[i].ID, k)
 			i++
 		}
+
+		sort.Slice(data, func(i, j int) bool {
+			return data[i].NCPeers < data[j].NCPeers
+		})
 		list.Refresh()
 		doneListener.DataChanged()
 	})
 
 	return container.NewBorder(
-		nil, refreshButton, nil, nil, container.NewHSplit(list, infoList),
+		// nil, refreshButton, nil, nil, container.NewHSplit(list, infoList),
+		nil, refreshButton, nil, nil, list,
 	)
 
 }
