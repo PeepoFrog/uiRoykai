@@ -8,6 +8,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -39,7 +40,7 @@ func (g *Gui) ShowConnect() {
 			}
 			return nil
 		}
-		addresBoxEntry := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewLabel(":"), portEntry), ipEntry)
+		addressBoxEntry := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewLabel(":"), portEntry), ipEntry)
 
 		keyPathEntry.PlaceHolder = "path to your private key"
 		passphraseEntry.PlaceHolder = "your passphrase"
@@ -173,6 +174,8 @@ func (g *Gui) ShowConnect() {
 				g.Host = &Host{
 					IP: ip,
 				}
+				go g.sshAliveTracker()
+				g.ConnectionStatusBinding.Set(true)
 				wizard.Hide()
 			}
 			defer g.WaitDialog.HideWaitDialog()
@@ -198,7 +201,7 @@ func (g *Gui) ShowConnect() {
 		logging := container.NewVBox(
 			widget.NewLabel("IP and Port"),
 			// ipEntry,
-			addresBoxEntry,
+			addressBoxEntry,
 			widget.NewLabel("User"),
 			userEntry,
 			keyEntryBox,
@@ -213,4 +216,17 @@ func (g *Gui) ShowConnect() {
 	wizard = dialogWizard.NewWizard("Create ssh connection", join())
 	wizard.Show(g.Window)
 	wizard.Resize(fyne.NewSize(350, 450))
+}
+
+func (g *Gui) sshAliveTracker() {
+	errorDoneBinding := binding.NewDataListener(func() {
+		// g.ShowConnect()
+	})
+	g.ConnectionCount++
+	err := g.sshClient.Wait()
+	if err != nil {
+		log.Printf("SSH was interrupted: %v", err.Error())
+		g.ConnectionStatusBinding.Set(false)
+		g.showErrorDialog(fmt.Errorf("SSH connection was disconnected, reason: %v", err.Error()), errorDoneBinding)
+	}
 }

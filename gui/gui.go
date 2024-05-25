@@ -1,35 +1,60 @@
 package gui
 
 import (
+	"fmt"
+	"log"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
 	"golang.org/x/crypto/ssh"
 )
 
+const appName = "Kensho 1.0"
+
 type Gui struct {
-	sshClient  *ssh.Client
-	Window     fyne.Window
-	WaitDialog *WaitDialog
-	HomeFolder string
-	Host       *Host
+	sshClient               *ssh.Client
+	Window                  fyne.Window
+	WaitDialog              *WaitDialog
+	HomeFolder              string
+	Host                    *Host
+	ConnectionStatusBinding binding.Bool
+	ConnectionCount         int
 }
 type Host struct {
 	IP string
 }
 
 func (g *Gui) MakeGui() fyne.CanvasObject {
-	title := widget.NewLabel("Kensho")
+	title := widget.NewLabel(appName)
 	info := widget.NewLabel("Welcome to  Kensho. Navigate trough panel on the left side")
-	// g.content = container.NewStack()
 	mainWindow := container.NewStack()
 
-	// a := fyne.CurrentApp()
-	// a.Lifecycle().SetOnStarted(func() {
-	// 	g.ShowConnect()
-	// })
+	reconnectButton := widget.NewButton("Reconnect", func() {
+		g.ShowConnect()
+	})
+	reconnectButton.Hide()
+	g.ConnectionStatusBinding = binding.NewBool()
+	g.ConnectionStatusBinding.AddListener(binding.NewDataListener(func() {
+		state, err := g.ConnectionStatusBinding.Get()
+		if err != nil {
+			log.Printf("error when getting connection status binding: %v", err)
+		}
+		if state {
+			g.Window.SetTitle(fmt.Sprintf("%v (connected)", appName))
+			reconnectButton.Hide()
+		} else {
+			g.Window.SetTitle(fmt.Sprintf("%v (not connected)", appName))
+			if g.ConnectionCount != 0 {
 
-	tab := container.NewBorder(container.NewVBox(title, info), nil, nil, nil, mainWindow)
+				log.Println("reconnect button show triggered, connection count:", g.ConnectionCount)
+				reconnectButton.Show()
+			}
+		}
+	}))
+
+	tab := container.NewBorder(container.NewVBox(title, info), reconnectButton, nil, nil, mainWindow)
 
 	setTab := func(t Tab) {
 		title.SetText(t.Title)
