@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	dialogWizard "github.com/PeepoFrog/km2UI/gui/dialogs"
@@ -158,4 +159,31 @@ func showCmdExecDialogAndRunCmdV4(g *Gui, infoMSG string, cmd string, autoHideCh
 func cleanString(s string) string {
 	re := regexp.MustCompile("[^\x20-\x7E\n]+")
 	return re.ReplaceAllString(s, "")
+}
+
+func showWarningMessageWithConfirmation(g *Gui, warningMessage string, confirmAction binding.DataListener) {
+	var wizard *dialogWizard.Wizard
+
+	// 	warningInfoLabel := widget.NewLabel(`By clicking "Proceed," you confirm that you have saved your mnemonic. You will no longer be able to see your mnemonic a second time. Make sure you have securely stored it before proceeding.
+	// If you have not please press "Return" and save your mnemonic.`)
+	warningInfoLabel := widget.NewLabel(warningMessage)
+
+	warningInfoLabel.Wrapping = fyne.TextWrapWord
+	warningInfoLabel.Importance = widget.DangerImportance
+	proceedButton := widget.NewButtonWithIcon("Proceed", theme.ConfirmIcon(), func() {
+		wizard.Hide()
+		confirmAction.DataChanged()
+	})
+	returnButton := widget.NewButton("Return", func() { wizard.Hide() })
+
+	content := container.NewBorder(
+		nil,
+		container.NewGridWithColumns(2, proceedButton, returnButton),
+		nil,
+		nil,
+		container.NewVScroll(warningInfoLabel),
+	)
+	wizard = dialogWizard.NewWizard("WARNING!", content)
+	wizard.Show(g.Window)
+	wizard.Resize(fyne.NewSize(500, 400))
 }

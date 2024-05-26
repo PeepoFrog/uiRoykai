@@ -32,8 +32,10 @@ func showMnemonicManagerDialog(g *Gui, mnemonicBinding binding.String, doneActio
 		doneAction.DataChanged()
 		wizard.Hide()
 	})
+	warningMessage := `By clicking "Proceed," you confirm that you have saved your mnemonic. You will no longer be able to see your mnemonic a second time. Make sure you have securely stored it before proceeding.
+If you have not please press "Return" and save your mnemonic.`
 	doneButton := widget.NewButton("Done", func() {
-		showMnemonicWarningMessage(g, warningConfirmDataListener)
+		showWarningMessageWithConfirmation(g, warningMessage, warningConfirmDataListener)
 	})
 	doneButton.Disable()
 	var content *fyne.Container
@@ -175,28 +177,3 @@ func showMnemonicEntryDialog(g *Gui, mnemonicBinding binding.String, doneAction 
 	wizard.Resize(fyne.NewSize(900, 200))
 }
 
-func showMnemonicWarningMessage(g *Gui, confirmAction binding.DataListener) {
-	var wizard *dialogWizard.Wizard
-
-	warningInfoLabel := widget.NewLabel(`By clicking "Proceed," you confirm that you have saved your mnemonic. You will no longer be able to see your mnemonic a second time. Make sure you have securely stored it before proceeding.
-If you have not please press "Return" and save your mnemonic.`)
-
-	warningInfoLabel.Wrapping = fyne.TextWrapWord
-	warningInfoLabel.Importance = widget.DangerImportance
-	proceedButton := widget.NewButtonWithIcon("Proceed", theme.ConfirmIcon(), func() {
-		wizard.Hide()
-		confirmAction.DataChanged()
-	})
-	returnButton := widget.NewButton("Return", func() { wizard.Hide() })
-
-	content := container.NewBorder(
-		nil,
-		container.NewGridWithColumns(2, proceedButton, returnButton),
-		nil,
-		nil,
-		warningInfoLabel,
-	)
-	wizard = dialogWizard.NewWizard("WARNING!", content)
-	wizard.Show(g.Window)
-	wizard.Resize(fyne.NewSize(500, 400))
-}

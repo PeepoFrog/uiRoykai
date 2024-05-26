@@ -35,6 +35,10 @@ func (g *Gui) MakeGui() fyne.CanvasObject {
 		g.ShowConnect()
 	})
 	reconnectButton.Hide()
+	reconnectButton.Importance = widget.DangerImportance
+
+	tab := container.NewBorder(container.NewVBox(title, info), reconnectButton, nil, nil, mainWindow)
+
 	g.ConnectionStatusBinding = binding.NewBool()
 	g.ConnectionStatusBinding.AddListener(binding.NewDataListener(func() {
 		state, err := g.ConnectionStatusBinding.Get()
@@ -44,18 +48,15 @@ func (g *Gui) MakeGui() fyne.CanvasObject {
 		if state {
 			g.Window.SetTitle(fmt.Sprintf("%v (connected)", appName))
 			reconnectButton.Hide()
+			tab.Refresh()
 		} else {
 			g.Window.SetTitle(fmt.Sprintf("%v (not connected)", appName))
 			if g.ConnectionCount != 0 {
-
 				log.Println("reconnect button show triggered, connection count:", g.ConnectionCount)
 				reconnectButton.Show()
 			}
 		}
 	}))
-
-	tab := container.NewBorder(container.NewVBox(title, info), reconnectButton, nil, nil, mainWindow)
-
 	setTab := func(t Tab) {
 		title.SetText(t.Title)
 		info.SetText(t.Info)
