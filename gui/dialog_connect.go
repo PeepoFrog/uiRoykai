@@ -14,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	dialogWizard "github.com/PeepoFrog/km2UI/gui/dialogs"
 	"github.com/PeepoFrog/km2UI/helper/gssh"
+	"github.com/fyne-io/terminal"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -171,6 +172,13 @@ func (g *Gui) ShowConnect() {
 				// err = TryToRunSSHSessionForTerminal(g.sshClient)
 				// if err != nil {
 				// } else {
+
+				err := TryToRunSSHSessionForTerminal(g)
+				if err != nil {
+					g.showErrorDialog(fmt.Errorf("unable to create terminal instance, disabling terminal: %v", err.Error()), binding.NewDataListener(func() {}))
+					g.Terminal.Term = terminal.New()
+
+				}
 				g.Host = &Host{
 					IP: ip,
 				}
@@ -223,10 +231,16 @@ func (g *Gui) sshAliveTracker() {
 		// g.ShowConnect()
 	})
 	g.ConnectionCount++
+
 	err := g.sshClient.Wait()
 	if err != nil {
 		log.Printf("SSH was interrupted: %v", err.Error())
 		g.ConnectionStatusBinding.Set(false)
+		// g.Terminal.Term.Exit()
+		// g.Terminal.SSHSessionForTerminal.Close()
+		// g.Terminal.SSHIn.Close()
+
 		g.showErrorDialog(fmt.Errorf("SSH connection was disconnected, reason: %v", err.Error()), errorDoneBinding)
 	}
+
 }

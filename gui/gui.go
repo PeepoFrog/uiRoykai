@@ -21,6 +21,7 @@ type Gui struct {
 	Host                    *Host
 	ConnectionStatusBinding binding.Bool
 	ConnectionCount         int
+	Terminal                Terminal
 }
 type Host struct {
 	IP string

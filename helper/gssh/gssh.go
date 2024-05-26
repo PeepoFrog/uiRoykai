@@ -196,3 +196,52 @@ func ExecuteSSHCommandV3(client *ssh.Client, command string, outputChan chan<- s
 	resultChan <- ResultV2{Err: err}
 	close(outputChan)
 }
+
+func MakeSSHsessionForTerminal(client *ssh.Client) (*ssh.Session, error) {
+	// Create a session
+	session, err := client.NewSession()
+	if err != nil {
+		client.Close()
+		return nil, err
+	}
+
+	// Request a pty (pseudo-terminal)
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          1,     // Enable echoing
+		ssh.TTY_OP_ISPEED: 14400, // Input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // Output speed = 14.4kbaud
+	}
+
+	if err := session.RequestPty("ansi", 80, 40, modes); err != nil {
+		session.Close()
+		client.Close()
+		return nil, err
+	}
+
+	return session, nil
+}
+
+// for testing
+func MakeSSHsessionForTerminalV2(client *ssh.Client) (*ssh.Session, error) {
+	// Create a session
+	session, err := client.NewSession()
+	if err != nil {
+		client.Close()
+		return nil, err
+	}
+
+	// Request a pty (pseudo-terminal)
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          1,     // Enable echoing
+		ssh.TTY_OP_ISPEED: 14400, // Input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // Output speed = 14.4kbaud
+	}
+
+	if err := session.RequestPty("ansi", 80, 40, modes); err != nil {
+		session.Close()
+		client.Close()
+		return nil, err
+	}
+
+	return session, nil
+}
