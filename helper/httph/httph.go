@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
 
-	"github.com/PeepoFrog/km2UI/types"
+	interxendpoint "github.com/PeepoFrog/km2UI/types/interxEndpoint"
+	sekaiendpoint "github.com/PeepoFrog/km2UI/types/sekaiEndpoint"
 )
 
 func MakeHttpRequest(url, method string) ([]byte, error) {
@@ -33,19 +33,32 @@ func MakeHttpRequest(url, method string) ([]byte, error) {
 	return body, nil
 }
 
-func GetInterxStatus(nodeIP string) (*types.Info, error) {
+func GetInterxStatus(nodeIP string) (*interxendpoint.Status, error) {
 	url := fmt.Sprintf("http://%v:11000/api/status", nodeIP)
 	b, err := MakeHttpRequest(url, "GET")
 	if err != nil {
 		return nil, err
 	}
-	var info types.Info
+	var info *interxendpoint.Status
 	err = json.Unmarshal(b, &info)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("interx status is okay")
-	return &info, nil
+	return info, nil
+}
+
+func GetSekaiStatus(nodeIP, port string) (*sekaiendpoint.Status, error) {
+	url := fmt.Sprintf("http://%v:%v/status", nodeIP, port)
+	b, err := MakeHttpRequest(url, "GET")
+	if err != nil {
+		return nil, err
+	}
+	var info *sekaiendpoint.Status
+	err = json.Unmarshal(b, &info)
+	if err != nil {
+		return nil, err
+	}
+	return info, nil
 }
 
 func ValidatePortRange(portStr string) bool {

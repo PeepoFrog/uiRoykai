@@ -26,14 +26,14 @@ func makeNodeInfoScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 	latestBlockData := binding.NewString()
 	latestBlockLabel := widget.NewLabelWithData(latestBlockData)
 	latestBlockBox := container.NewHBox(
-		widget.NewLabel("latest Block"), latestBlockLabel,
+		widget.NewLabel("Latest Block"), latestBlockLabel,
 	)
 
 	// validator address box
 	validatorAddressData := binding.NewString()
 	validatorAddressLabel := widget.NewLabelWithData(validatorAddressData)
 	validatorAddressBox := container.NewHBox(
-		widget.NewLabel("validator address: "), validatorAddressLabel,
+		widget.NewLabel("Validator Address: "), validatorAddressLabel,
 		widget.NewButtonWithIcon("Copy", theme.ContentCopyIcon(), func() {
 			data, err := validatorAddressData.Get()
 			if err != nil {
@@ -51,13 +51,14 @@ func makeNodeInfoScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 	publicIpData := binding.NewString()
 	publicIpLabel := widget.NewLabelWithData(publicIpData)
 	publicIpBox := container.NewHBox(
-		widget.NewLabel("public ip address: "), publicIpLabel,
+		widget.NewLabel("Public IP Address: "), publicIpLabel,
 	)
+
 	// miss chance box
 	missChanceData := binding.NewString()
 	missChanceLabel := widget.NewLabelWithData(missChanceData)
 	missChanceBox := container.NewHBox(
-		widget.NewLabel("miss chance: "), missChanceLabel,
+		widget.NewLabel("Miss Chance: "), missChanceLabel,
 	)
 
 	refreshScreen := func() {
@@ -67,10 +68,7 @@ func makeNodeInfoScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		if err != nil {
 			return
 		}
-		err = latestBlockData.Set(i.InterxInfo.LatestBlockHeight)
-		if err != nil {
-			return
-		}
+		latestBlockData.Set(i.InterxInfo.LatestBlockHeight)
 
 	}
 

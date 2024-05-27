@@ -80,11 +80,12 @@ If you have not please press "Return" and save your mnemonic.`
 		wizard.Hide()
 	})
 
+	doneEnteringMnemonicListener := binding.NewDataListener(func() {
+		mnemonicChanged.DataChanged()
+	})
 	enterMnemonicManuallyButton := widget.NewButton("Enter your mnemonic", func() {
-		doneEnteringMnemonicListener := binding.NewDataListener(func() {
-			mnemonicChanged.DataChanged()
-		})
-		showMnemonicEntryDialog(g, mnemonicBinding, doneEnteringMnemonicListener)
+
+		showMnemonicEntryDialog(g, localMnemonicBinding, doneEnteringMnemonicListener)
 	})
 
 	copyButton := widget.NewButtonWithIcon("Copy", theme.FileIcon(), func() {
@@ -176,4 +177,3 @@ func showMnemonicEntryDialog(g *Gui, mnemonicBinding binding.String, doneAction 
 	wizard.Show(g.Window)
 	wizard.Resize(fyne.NewSize(900, 200))
 }
-

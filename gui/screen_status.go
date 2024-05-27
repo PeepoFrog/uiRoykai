@@ -12,6 +12,9 @@ import (
 )
 
 func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
+	const UnavailableStatusText = "Unavailable"
+	const RunningStatusText = "Running"
+
 	var dataListenerForSuccesses binding.DataListener
 	deployButton := widget.NewButton("Deploy", func() {
 		showDeployDialog(g, dataListenerForSuccesses)
@@ -32,10 +35,25 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		shidaiStatusInfo,
 	)
 
+	sekaiStatusInfo := widget.NewLabel("")
+	sekaiStatusBinding := binding.NewBool()
+	sekaiStatusBinding.AddListener(binding.NewDataListener(func() {
+		check, _ := sekaiStatusBinding.Get()
+		if check {
+			sekaiStatusInfo.SetText(RunningStatusText)
+		} else {
+			sekaiStatusInfo.SetText(UnavailableStatusText)
+		}
+	}))
+	sekaiInfoBox := container.NewHBox(
+		widget.NewLabel("Sekai:"),
+		sekaiStatusInfo,
+	)
+
 	checkInterxStatus := func() {
 		_, err := httph.GetInterxStatus(g.Host.IP)
 		if err != nil {
-			interxStatusInfo.SetText("interx unavailable")
+			interxStatusInfo.SetText(UnavailableStatusText)
 			log.Printf("ERROR getting interx status: %v", err)
 			err = interxStatusBinding.Set(false)
 			if err != nil {
@@ -44,7 +62,7 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 			}
 		} else {
 			err = interxStatusBinding.Set(true)
-			interxStatusInfo.SetText("interx is running")
+			interxStatusInfo.SetText(RunningStatusText)
 			if err != nil {
 				log.Printf("%v", err)
 				return
@@ -57,18 +75,26 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		_, err := httph.MakeHttpRequest(fmt.Sprintf("http://%v:%v/status", g.Host.IP, 8282), "GET")
 		if err != nil {
 			log.Printf("ERROR: %v", err)
-			shidaiStatusInfo.SetText("shidai unavailable")
+			shidaiStatusInfo.SetText(UnavailableStatusText)
 			err = shidaiStatusBinding.Set(false)
 			if err != nil {
 				log.Printf("ERROR: %v", err)
 				return
 			}
 		} else {
-			shidaiStatusInfo.SetText("shidai is running")
+			shidaiStatusInfo.SetText(RunningStatusText)
 			err = shidaiStatusBinding.Set(true)
 			if err != nil {
 				return
 			}
+		}
+	}
+	checkSekaiStatus := func() {
+		_, err := httph.GetSekaiStatus(g.Host.IP, "26657")
+		if err != nil {
+			sekaiStatusBinding.Set(false)
+		} else {
+			sekaiStatusBinding.Set(true)
 		}
 	}
 
@@ -76,15 +102,12 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		g.WaitDialog.ShowWaitDialog()
 		checkInterxStatus()
 		checkShidaiStatus()
-		shidaiCheck, err := shidaiStatusBinding.Get()
-		if err != nil {
-			log.Println(err)
-		}
-		interxCheck, err := interxStatusBinding.Get()
-		if err != nil {
-			log.Println(err)
-		}
-		if !shidaiCheck && !interxCheck {
+		checkSekaiStatus()
+		shidaiCheck, _ := shidaiStatusBinding.Get()
+		sekaiCheck, _ := sekaiStatusBinding.Get()
+		interxCheck, _ := interxStatusBinding.Get()
+
+		if !shidaiCheck && !interxCheck && !sekaiCheck {
 			deployButton.Enable()
 		}
 
@@ -99,11 +122,14 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		deployButton.Disable()
 		refresh()
 	})
-	return container.NewVBox(
-		deployButton,
-		refreshButton,
-		interxInfoBox,
-		shidaiInfoBox,
-	)
+
+	// refresh()
+	return container.NewBorder(nil, refreshButton, nil, nil,
+		container.NewVBox(
+			deployButton,
+			interxInfoBox,
+			sekaiInfoBox,
+			shidaiInfoBox,
+		))
 
 }
