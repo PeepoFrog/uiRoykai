@@ -6,7 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"github.com/PeepoFrog/km2UI/helper/gssh"
+	"github.com/KiraCore/kensho/helper/gssh"
 	"github.com/fyne-io/terminal"
 	"golang.org/x/crypto/ssh"
 )

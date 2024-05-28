@@ -8,7 +8,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
-	dialogWizard "github.com/PeepoFrog/km2UI/gui/dialogs"
+	dialogWizard "github.com/KiraCore/kensho/gui/dialogs"
 )
 
 func showSekaiExecuteDialog(g *Gui) {

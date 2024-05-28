@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	interxendpointtypes "github.com/PeepoFrog/km2UI/types/interxEndpoint"
+	interxendpointtypes "github.com/KiraCore/kensho/types/interxEndpoint"
 )
 
 var mu sync.Mutex

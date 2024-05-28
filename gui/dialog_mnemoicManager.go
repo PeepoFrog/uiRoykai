@@ -10,8 +10,8 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	dialogWizard "github.com/PeepoFrog/km2UI/gui/dialogs"
-	mnemonicHelper "github.com/PeepoFrog/km2UI/helper/mnemonicHelper"
+	dialogWizard "github.com/KiraCore/kensho/gui/dialogs"
+	mnemonicHelper "github.com/KiraCore/kensho/helper/mnemonicHelper"
 
 	"github.com/atotto/clipboard"
 )

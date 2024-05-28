@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strconv"
 
-	interxendpoint "github.com/PeepoFrog/km2UI/types/interxEndpoint"
-	sekaiendpoint "github.com/PeepoFrog/km2UI/types/sekaiEndpoint"
+	interxendpoint "github.com/KiraCore/kensho/types/interxEndpoint"
+	sekaiendpoint "github.com/KiraCore/kensho/types/sekaiEndpoint"
 )
 
 func MakeHttpRequest(url, method string) ([]byte, error) {

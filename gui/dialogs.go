@@ -12,8 +12,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	dialogWizard "github.com/PeepoFrog/km2UI/gui/dialogs"
-	"github.com/PeepoFrog/km2UI/helper/gssh"
+	dialogWizard "github.com/KiraCore/kensho/gui/dialogs"
+	"github.com/KiraCore/kensho/helper/gssh"
 	"github.com/atotto/clipboard"
 )
 

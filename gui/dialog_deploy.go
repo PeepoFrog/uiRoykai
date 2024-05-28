@@ -10,8 +10,8 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	dialogWizard "github.com/PeepoFrog/km2UI/gui/dialogs"
-	"github.com/PeepoFrog/km2UI/helper/httph"
+	dialogWizard "github.com/KiraCore/kensho/gui/dialogs"
+	"github.com/KiraCore/kensho/helper/httph"
 )
 
 func showDeployDialog(g *Gui, doneListener binding.DataListener) {

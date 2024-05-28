@@ -11,7 +11,7 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/PeepoFrog/km2UI/helper/networkparser"
+	"github.com/KiraCore/kensho/helper/networkparser"
 	"github.com/atotto/clipboard"
 )
 

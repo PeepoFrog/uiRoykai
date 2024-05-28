@@ -10,7 +10,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/atotto/clipboard"
 
-	"github.com/PeepoFrog/km2UI/helper/httph"
+	"github.com/KiraCore/kensho/helper/httph"
 )
 
 // type InfoScreen struct {

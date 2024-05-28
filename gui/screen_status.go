@@ -8,12 +8,12 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
-	"github.com/PeepoFrog/km2UI/helper/httph"
+	"github.com/KiraCore/kensho/helper/httph"
 )
 
 func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
-	const UnavailableStatusText = "Unavailable"
-	const RunningStatusText = "Running"
+	const STATUS_Unavailable = "Unavailable"
+	const STATUS_Running = "Running"
 
 	var dataListenerForSuccesses binding.DataListener
 	deployButton := widget.NewButton("Deploy", func() {
@@ -40,9 +40,9 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 	sekaiStatusBinding.AddListener(binding.NewDataListener(func() {
 		check, _ := sekaiStatusBinding.Get()
 		if check {
-			sekaiStatusInfo.SetText(RunningStatusText)
+			sekaiStatusInfo.SetText(STATUS_Running)
 		} else {
-			sekaiStatusInfo.SetText(UnavailableStatusText)
+			sekaiStatusInfo.SetText(STATUS_Unavailable)
 		}
 	}))
 	sekaiInfoBox := container.NewHBox(
@@ -53,7 +53,7 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 	checkInterxStatus := func() {
 		_, err := httph.GetInterxStatus(g.Host.IP)
 		if err != nil {
-			interxStatusInfo.SetText(UnavailableStatusText)
+			interxStatusInfo.SetText(STATUS_Unavailable)
 			log.Printf("ERROR getting interx status: %v", err)
 			err = interxStatusBinding.Set(false)
 			if err != nil {
@@ -62,7 +62,7 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 			}
 		} else {
 			err = interxStatusBinding.Set(true)
-			interxStatusInfo.SetText(RunningStatusText)
+			interxStatusInfo.SetText(STATUS_Running)
 			if err != nil {
 				log.Printf("%v", err)
 				return
@@ -75,14 +75,14 @@ func makeStatusScreen(_ fyne.Window, g *Gui) fyne.CanvasObject {
 		_, err := httph.MakeHttpRequest(fmt.Sprintf("http://%v:%v/status", g.Host.IP, 8282), "GET")
 		if err != nil {
 			log.Printf("ERROR: %v", err)
-			shidaiStatusInfo.SetText(UnavailableStatusText)
+			shidaiStatusInfo.SetText(STATUS_Unavailable)
 			err = shidaiStatusBinding.Set(false)
 			if err != nil {
 				log.Printf("ERROR: %v", err)
 				return
 			}
 		} else {
-			shidaiStatusInfo.SetText(RunningStatusText)
+			shidaiStatusInfo.SetText(STATUS_Running)
 			err = shidaiStatusBinding.Set(true)
 			if err != nil {
 				return

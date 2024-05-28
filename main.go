@@ -3,7 +3,7 @@ package main
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"github.com/PeepoFrog/km2UI/gui"
+	"github.com/KiraCore/kensho/gui"
 )
 
 func main() {

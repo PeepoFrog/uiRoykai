@@ -1,4 +1,4 @@
-module github.com/PeepoFrog/km2UI
+module github.com/KiraCore/kensho
 
 go 1.22.2
 
